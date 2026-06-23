@@ -1,0 +1,1 @@
+"""GitSight backend application package."""
