@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    clone_base_dir: str = "/tmp/gitsight"
+    max_file_size_bytes: int = 1_048_576
+    max_branches_to_analyze: int = 10
+    clone_depth: int = 0
+    github_token: str | None = None
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

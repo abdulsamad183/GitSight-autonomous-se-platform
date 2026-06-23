@@ -4,8 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
-from app.core.database import get_db
+from app.core.database import engine, get_db
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+async def dispose_global_engine_after_test():
+    yield
+    await engine.dispose()
 
 
 @pytest.fixture
@@ -51,3 +57,10 @@ def register_payload():
         "email": "test@example.com",
         "password": "securepass123",
     }
+
+
+@pytest.fixture
+async def authenticated_client(db_client, register_payload):
+    response = await db_client.post("/api/v1/auth/register", json=register_payload)
+    assert response.status_code == 201
+    return db_client

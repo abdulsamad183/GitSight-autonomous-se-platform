@@ -1,0 +1,299 @@
+from datetime import datetime, timezone
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import UUID
+
+import pytest
+
+from app.services.analysis.repository_analyzer import RepositoryAnalyzer
+from app.services.analysis.repository_cloner import CloneResult
+
+ANALYZE_URL = "/api/v1/repositories/analyze"
+LIST_URL = "/api/v1/repositories"
+
+
+def _make_clone_result(job_id: UUID, branches: list[str]) -> CloneResult:
+    clone_path = Path("/tmp/gitsight-api-test") / str(job_id)
+    clone_path.mkdir(parents=True, exist_ok=True)
+    (clone_path / "main.py").write_text("def hello():\n    pass\n", encoding="utf-8")
+    return CloneResult(
+        clone_path=clone_path,
+        default_branch=branches[0],
+        default_commit_hash="abc123",
+        branches=branches,
+        total_branches_found=len(branches),
+        branches_truncated=False,
+        analyzed_at=datetime.now(timezone.utc),
+    )
+
+
+@pytest.mark.asyncio
+async def test_analyze_requires_auth(client):
+    response = await client.post(
+        ANALYZE_URL,
+        json={"github_url": "https://github.com/octocat/Hello-World"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_analyze_invalid_url(authenticated_client):
+    response = await authenticated_client.post(
+        ANALYZE_URL,
+        json={"github_url": "https://example.com/not-github"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_analyze_success(authenticated_client):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        response = await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Hello-World"},
+        )
+
+    assert response.status_code == 202
+    data = response.json()
+    assert "repository_id" in data
+    assert "job_id" in data
+    assert data["status"] == "PENDING"
+    assert data["cached"] is False
+
+
+@pytest.mark.asyncio
+async def test_list_repositories(authenticated_client):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/List-Repo"},
+        )
+
+    response = await authenticated_client.get(LIST_URL)
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+
+
+@pytest.mark.asyncio
+async def test_get_repository_requires_ownership(authenticated_client, register_payload):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        analyze_response = await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Owned-Repo"},
+        )
+
+    assert analyze_response.status_code == 202
+    repository_id = analyze_response.json()["repository_id"]
+
+    other_payload = {
+        "username": "otheruser",
+        "email": "other@example.com",
+        "password": "securepass123",
+    }
+    other_client_response = await authenticated_client.post(
+        "/api/v1/auth/register",
+        json=other_payload,
+    )
+    assert other_client_response.status_code == 201
+
+    await authenticated_client.post("/api/v1/auth/logout")
+    login_response = await authenticated_client.post(
+        "/api/v1/auth/login",
+        json={"email": other_payload["email"], "password": other_payload["password"]},
+    )
+    assert login_response.status_code == 200
+
+    response = await authenticated_client.get(f"/api/v1/repositories/{repository_id}")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_repository(authenticated_client):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        analyze_response = await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Delete-Me"},
+        )
+
+    repository_id = analyze_response.json()["repository_id"]
+    delete_response = await authenticated_client.delete(f"/api/v1/repositories/{repository_id}")
+    assert delete_response.status_code == 204
+
+    get_response = await authenticated_client.get(f"/api/v1/repositories/{repository_id}")
+    assert get_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_clear_all_repositories(authenticated_client):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Clear-All-1"},
+        )
+        await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Clear-All-2"},
+        )
+
+    clear_response = await authenticated_client.delete(LIST_URL)
+    assert clear_response.status_code == 200
+    assert clear_response.json()["deleted_count"] >= 2
+
+    list_response = await authenticated_client.get(LIST_URL)
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_list_branches_and_details_by_branch(client):
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:8]
+    register_payload = {
+        "username": f"branchapiuser_{suffix}",
+        "email": f"branchapi_{suffix}@example.com",
+        "password": "securepass123",
+    }
+    register_response = await client.post("/api/v1/auth/register", json=register_payload)
+    assert register_response.status_code == 201
+
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryCloner",
+        ) as mock_cloner_cls,
+        patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
+        patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+    ):
+        analyze_response = await client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Branch-Repo"},
+        )
+        assert analyze_response.status_code == 202
+        payload = analyze_response.json()
+        repository_id = payload["repository_id"]
+        job_id = UUID(payload["job_id"])
+
+        clone_result = _make_clone_result(job_id, ["main", "gh-pages"])
+        mock_cloner_cls.return_value.clone.return_value = clone_result
+        mock_cloner_cls.return_value.checkout_branch.side_effect = ["abc123", "def456"]
+        mock_repo_cls.return_value = MagicMock()
+
+        await RepositoryAnalyzer().run(job_id)
+
+    branches_response = await client.get(
+        f"/api/v1/repositories/{repository_id}/branches",
+    )
+    assert branches_response.status_code == 200
+    branches = branches_response.json()
+    assert len(branches) == 2
+    branch_names = {item["branch"] for item in branches}
+    assert branch_names == {"main", "gh-pages"}
+
+    details_response = await client.get(
+        f"/api/v1/repositories/{repository_id}/details?branch=gh-pages",
+    )
+    assert details_response.status_code == 200
+    details = details_response.json()
+    assert details["selected_branch"] == "gh-pages"
+    assert details["files_count"] >= 1
+
+    delete_response = await client.delete(f"/api/v1/repositories/{repository_id}")
+    assert delete_response.status_code == 204
+
+    import shutil
+
+    shutil.rmtree(clone_result.clone_path, ignore_errors=True)
+
+
+@pytest.mark.asyncio
+async def test_refresh_repository(client):
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:8]
+    register_payload = {
+        "username": f"refreshuser_{suffix}",
+        "email": f"refresh_{suffix}@example.com",
+        "password": "securepass123",
+    }
+    register_response = await client.post("/api/v1/auth/register", json=register_payload)
+    assert register_response.status_code == 201
+
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryCloner",
+        ) as mock_cloner_cls,
+        patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
+        patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+    ):
+        analyze_response = await client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Refresh-Repo"},
+        )
+        assert analyze_response.status_code == 202
+        payload = analyze_response.json()
+        repository_id = payload["repository_id"]
+        job_id = UUID(payload["job_id"])
+
+        clone_result = _make_clone_result(job_id, ["main"])
+        mock_cloner_cls.return_value.clone.return_value = clone_result
+        mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
+        mock_repo_cls.return_value = MagicMock()
+
+        await RepositoryAnalyzer().run(job_id)
+
+    with patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock):
+        refresh_response = await client.post(f"/api/v1/repositories/{repository_id}/refresh")
+        assert refresh_response.status_code == 202
+        data = refresh_response.json()
+        assert data["repository_id"] == repository_id
+        assert data["cached"] is False
+        assert data["job_id"] is not None
+
+    delete_response = await client.delete(f"/api/v1/repositories/{repository_id}")
+    assert delete_response.status_code == 204
+
+    import shutil
+
+    shutil.rmtree(clone_result.clone_path, ignore_errors=True)
