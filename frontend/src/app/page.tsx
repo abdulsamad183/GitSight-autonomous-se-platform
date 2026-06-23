@@ -1,6 +1,3 @@
-import Link from "next/link";
-
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -8,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { HomeCTA, HomeNav } from "@/components/home-cta";
 
 const features = [
   {
@@ -31,9 +28,7 @@ export default function Home() {
       <header className="border-b">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <span className="text-lg font-semibold tracking-tight">GitSight</span>
-          <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }))}>
-            Dashboard
-          </Link>
+          <HomeNav />
         </div>
       </header>
 
@@ -49,19 +44,7 @@ export default function Home() {
             GitSight helps you understand, search, and improve your codebase with
             repository-aware AI — from ingestion to PR review and engineering audits.
           </p>
-          <div className="flex gap-3">
-            <Link href="/dashboard" className={cn(buttonVariants())}>
-              Open Dashboard
-            </Link>
-            <a
-              href="https://github.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(buttonVariants({ variant: "outline" }))}
-            >
-              Learn More
-            </a>
-          </div>
+          <HomeCTA />
         </section>
 
         <section className="grid gap-6 sm:grid-cols-3">

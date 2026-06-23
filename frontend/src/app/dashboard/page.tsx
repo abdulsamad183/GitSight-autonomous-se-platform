@@ -1,6 +1,10 @@
-import Link from "next/link";
+"use client";
 
-import { buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -8,32 +12,49 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 import { getHealth, getVersion } from "@/services/health";
 
-export default async function DashboardPage() {
-  let healthStatus = "unavailable";
-  let serviceName = "—";
-  let version = "—";
-  let error: string | null = null;
+export default function DashboardPage() {
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const [healthStatus, setHealthStatus] = useState("loading");
+  const [serviceName, setServiceName] = useState("—");
+  const [version, setVersion] = useState("—");
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  try {
-    const [health, versionInfo] = await Promise.all([getHealth(), getVersion()]);
-    healthStatus = health.status;
-    serviceName = versionInfo.service;
-    version = versionInfo.version;
-  } catch (e) {
-    error = e instanceof Error ? e.message : "Failed to reach API";
-  }
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const [health, versionInfo] = await Promise.all([getHealth(), getVersion()]);
+        setHealthStatus(health.status);
+        setServiceName(versionInfo.service);
+        setVersion(versionInfo.version);
+      } catch (e) {
+        setApiError(e instanceof Error ? e.message : "Failed to reach API");
+      }
+    };
+    void fetchStatus();
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <span className="text-lg font-semibold tracking-tight">GitSight</span>
-          <Link href="/" className={cn(buttonVariants({ variant: "outline" }))}>
-            Home
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              Home
+            </Link>
+            <Button variant="outline" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -41,15 +62,16 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="mt-2 text-muted-foreground">
-            Platform overview and API status. Full features coming soon.
+            Welcome back, <span className="font-medium text-foreground">{user?.username}</span>
+            {user?.email ? ` (${user.email})` : ""}
           </p>
         </div>
 
-        {error && (
+        {apiError && (
           <Card className="border-destructive">
             <CardHeader>
               <CardTitle className="text-destructive">API Connection Error</CardTitle>
-              <CardDescription>{error}</CardDescription>
+              <CardDescription>{apiError}</CardDescription>
             </CardHeader>
           </Card>
         )}

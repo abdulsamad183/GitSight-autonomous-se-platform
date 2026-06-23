@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.endpoints import health, version
+from app.api.v1.endpoints import auth, health, version
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.middleware.request_logging import RequestLoggingMiddleware
@@ -38,3 +38,4 @@ app.add_middleware(
 
 app.include_router(health.router, tags=["health"])
 app.include_router(version.router, prefix=settings.api_v1_prefix, tags=["version"])
+app.include_router(auth.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])

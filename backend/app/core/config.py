@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     groq_api_key: str | None = None
     secret_key: str = "change-me-in-production"
 
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440
+    cookie_name: str = "access_token"
+    cookie_samesite: str = "lax"
+
     api_v1_prefix: str = "/api/v1"
     service_name: str = "autonomous-software-engineer"
     version: str = "0.1.0"
@@ -22,6 +27,10 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.env == "development"
+
+    @property
+    def cookie_secure(self) -> bool:
+        return self.env != "development"
 
     @property
     def sync_database_url(self) -> str:
