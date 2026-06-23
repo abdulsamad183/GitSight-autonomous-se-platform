@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from app.utils.file_filter import (
     detect_language,
     is_binary_content,

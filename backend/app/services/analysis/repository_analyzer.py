@@ -1,6 +1,6 @@
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -73,9 +73,9 @@ class RepositoryAnalyzer:
             return True, False
 
         if existing:
-            await tracker.set_message(
-                f"{branch} updated {_short_hash(existing.commit_hash)} → {_short_hash(commit_hash)}",
-            )
+            old_hash = _short_hash(existing.commit_hash)
+            new_hash = _short_hash(commit_hash)
+            await tracker.set_message(f"{branch} updated {old_hash} → {new_hash}")
         else:
             await tracker.set_message(f"{branch} analyzed at {_short_hash(commit_hash)}")
 

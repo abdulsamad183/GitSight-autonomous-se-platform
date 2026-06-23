@@ -4,12 +4,12 @@ from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.job import JobStatus, JobType
+from app.models.job import JobType
 from app.models.repository import RepositoryStatus
 from app.repositories import job_repository, repository_repository
 from app.schemas.repository import AnalyzeResponse
 from app.services.analysis.repository_analyzer import run_analysis_job
-from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.services.exceptions import ConflictError, NotFoundError, ValidationError
 from app.utils.github import parse_github_url, validate_public_repo
 
 
