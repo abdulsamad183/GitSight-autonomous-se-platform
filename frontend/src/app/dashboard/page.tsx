@@ -32,11 +32,6 @@ export default function DashboardPage() {
     isRefresh: boolean;
   } | null>(null);
 
-  const shouldPoll = activeJob?.result.job_id && !activeJob.cached;
-  const { job, error: pollError, isPolling } = useJobPolling(
-    shouldPoll ? activeJob.result.job_id : null,
-  );
-
   const loadRepos = useCallback(async () => {
     try {
       const data = await listRepositories();
@@ -49,14 +44,35 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    void loadRepos();
-  }, [loadRepos]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (job?.status === "COMPLETED" || job?.status === "FAILED") {
-      void loadRepos();
-    }
-  }, [job?.status, loadRepos]);
+    void (async () => {
+      try {
+        const data = await listRepositories();
+        if (!cancelled) {
+          setAnalyzedRepos(data);
+        }
+      } catch {
+        if (!cancelled) {
+          setAnalyzedRepos([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setReposLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const shouldPoll = activeJob?.result.job_id && !activeJob.cached;
+  const { job, error: pollError, isPolling } = useJobPolling(
+    shouldPoll ? activeJob.result.job_id : null,
+    { onTerminal: loadRepos },
+  );
 
   const stats = useMemo(() => {
     const totalBranches = analyzedRepos.reduce((sum, repo) => sum + repo.branches_count, 0);

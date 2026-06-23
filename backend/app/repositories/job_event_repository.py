@@ -15,8 +15,6 @@ async def append(db: AsyncSession, *, job_id: UUID, message: str) -> JobEvent:
 
 async def list_for_job(db: AsyncSession, job_id: UUID) -> list[JobEvent]:
     result = await db.execute(
-        select(JobEvent)
-        .where(JobEvent.job_id == job_id)
-        .order_by(JobEvent.created_at.asc())
+        select(JobEvent).where(JobEvent.job_id == job_id).order_by(JobEvent.created_at.asc())
     )
     return list(result.scalars().all())

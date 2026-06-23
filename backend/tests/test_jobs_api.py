@@ -40,7 +40,5 @@ async def test_get_job_status(authenticated_client):
 
 @pytest.mark.asyncio
 async def test_get_job_not_found(authenticated_client):
-    response = await authenticated_client.get(
-        f"{JOBS_URL}/00000000-0000-0000-0000-000000000099"
-    )
+    response = await authenticated_client.get(f"{JOBS_URL}/00000000-0000-0000-0000-000000000099")
     assert response.status_code == 404

@@ -156,7 +156,9 @@ class TreeSitterParser:
             if node.type in {"function_declaration", "method_definition"}:
                 name_node = node.child_by_field_name("name")
                 if name_node:
-                    symbol_type = "method" if inside_class or node.type == "method_definition" else "function"
+                    symbol_type = (
+                        "method" if inside_class or node.type == "method_definition" else "function"
+                    )
                     symbols.append(
                         SymbolDraft(
                             symbol_name=self._node_text(name_node, source),

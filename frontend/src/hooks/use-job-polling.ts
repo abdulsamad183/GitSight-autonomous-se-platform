@@ -8,18 +8,22 @@ import type { JobStatusResponse } from "@/types/job";
 const POLL_INTERVAL_MS = 1000;
 const TERMINAL_STATUSES = new Set(["COMPLETED", "FAILED"]);
 
-export function useJobPolling(jobId: string | null) {
+interface UseJobPollingOptions {
+  onTerminal?: () => void;
+}
+
+export function useJobPolling(jobId: string | null, options?: UseJobPollingOptions) {
   const [job, setJob] = useState<JobStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onTerminal = options?.onTerminal;
 
-  const stopPolling = useCallback(() => {
+  const clearPollingInterval = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setIsPolling(false);
   }, []);
 
   const poll = useCallback(async () => {
@@ -30,32 +34,45 @@ export function useJobPolling(jobId: string | null) {
       setJob(status);
       setError(null);
       if (TERMINAL_STATUSES.has(status.status)) {
-        stopPolling();
+        clearPollingInterval();
+        setIsPolling(false);
+        onTerminal?.();
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to fetch job status");
-      stopPolling();
+      clearPollingInterval();
+      setIsPolling(false);
     }
-  }, [jobId, stopPolling]);
+  }, [jobId, onTerminal, clearPollingInterval]);
 
   useEffect(() => {
     if (!jobId) {
-      setJob(null);
-      setError(null);
-      stopPolling();
+      clearPollingInterval();
       return;
     }
 
-    setIsPolling(true);
-    void poll();
+    let cancelled = false;
+
+    void (async () => {
+      if (!cancelled) {
+        setIsPolling(true);
+      }
+      await poll();
+    })();
+
     intervalRef.current = setInterval(() => {
       void poll();
     }, POLL_INTERVAL_MS);
 
     return () => {
-      stopPolling();
+      cancelled = true;
+      clearPollingInterval();
     };
-  }, [jobId, poll, stopPolling]);
+  }, [jobId, poll, clearPollingInterval]);
 
-  return { job, error, isPolling };
+  return {
+    job: jobId ? job : null,
+    error: jobId ? error : null,
+    isPolling: jobId ? isPolling : false,
+  };
 }

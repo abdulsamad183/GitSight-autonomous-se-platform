@@ -26,9 +26,7 @@ async def start_analysis(
     except ValidationError:
         raise
 
-    existing = await repository_repository.get_by_url_for_user(
-        db, user_id, parsed.normalized_url
-    )
+    existing = await repository_repository.get_by_url_for_user(db, user_id, parsed.normalized_url)
 
     if existing and existing.status == RepositoryStatus.ACTIVE:
         latest_job = await job_repository.get_latest_for_repository(db, existing.id)

@@ -69,9 +69,7 @@ class JobTracker:
             progress=100.0,
             current_stage=STAGE_COMPLETED[0],
         )
-        await job_event_repository.append(
-            self.db, job_id=self.job.id, message=STAGE_COMPLETED[0]
-        )
+        await job_event_repository.append(self.db, job_id=self.job.id, message=STAGE_COMPLETED[0])
         await self.db.commit()
 
     async def mark_completed_with_stage(self, stage: str) -> None:

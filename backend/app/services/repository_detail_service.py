@@ -41,7 +41,9 @@ async def _resolve_snapshot(db, repository, branch: str | None):
         return snapshot, available, branch
 
     if repository.default_branch:
-        snapshot = await snapshot_repository.get_for_branch(db, repository.id, repository.default_branch)
+        snapshot = await snapshot_repository.get_for_branch(
+            db, repository.id, repository.default_branch
+        )
         if snapshot:
             return snapshot, available, repository.default_branch
 
@@ -78,8 +80,7 @@ async def get_job_status(db: AsyncSession, *, job_id: UUID, user_id: UUID) -> Jo
         current_stage=job.current_stage,
         error_message=job.error_message,
         events=[
-            JobEventItem(message=event.message, created_at=event.created_at)
-            for event in events
+            JobEventItem(message=event.message, created_at=event.created_at) for event in events
         ],
     )
 
@@ -192,7 +193,9 @@ async def get_repository_detail(
         raise NotFoundError("Repository not found")
 
     summary = await _build_summary(db, repository, branch=branch)
-    snapshot, _, selected_branch = await _resolve_snapshot(db, repository, branch or summary.default_branch)
+    snapshot, _, selected_branch = await _resolve_snapshot(
+        db, repository, branch or summary.default_branch
+    )
 
     files: list[FileItem] = []
     symbols: list[SymbolItem] = []
