@@ -58,6 +58,10 @@ class DependencyExtractor:
             return self._resolve_python_import(module_path)
         if language in {"javascript", "typescript"}:
             return self._resolve_js_import(source_relative_path, module_path)
+        if language == "go":
+            return self._resolve_go_import(module_path)
+        if language in {"c", "cpp"}:
+            return self._resolve_c_include(source_relative_path, module_path)
         return None
 
     def _resolve_python_import(self, module_path: str) -> str | None:
@@ -90,6 +94,52 @@ class DependencyExtractor:
             f"{resolved}.tsx",
             f"{resolved}/index.js",
             f"{resolved}/index.ts",
+        ]
+        for candidate in candidates:
+            normalized = Path(candidate).as_posix()
+            if normalized in self.path_to_file_id:
+                return normalized
+        return None
+
+    def _resolve_go_import(self, module_path: str) -> str | None:
+        clean = module_path.strip().strip('"')
+        if not clean:
+            return None
+
+        parts = clean.split("/")
+        candidates: list[str] = []
+        for index in range(len(parts)):
+            suffix = "/".join(parts[index:])
+            candidates.extend(
+                [
+                    f"{suffix}.go",
+                    f"{suffix}/main.go",
+                ]
+            )
+            for key in self.path_to_file_id:
+                if key.startswith(f"{suffix}/") and key.endswith(".go"):
+                    candidates.append(key)
+        candidates.append(f"{parts[-1]}.go")
+
+        for candidate in candidates:
+            normalized = Path(candidate).as_posix()
+            if normalized in self.path_to_file_id:
+                return normalized
+        return None
+
+    def _resolve_c_include(self, source_relative_path: str, module_path: str) -> str | None:
+        if module_path.startswith("<") and module_path.endswith(">"):
+            return None
+
+        clean = module_path.strip().strip('"')
+        if not clean:
+            return None
+
+        source_dir = Path(source_relative_path).parent
+        resolved = (source_dir / clean).as_posix()
+        candidates = [
+            resolved,
+            clean,
         ]
         for candidate in candidates:
             normalized = Path(candidate).as_posix()

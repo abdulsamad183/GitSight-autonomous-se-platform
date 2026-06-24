@@ -21,6 +21,10 @@ def test_should_skip_file():
 def test_detect_language():
     assert detect_language(".py") == "python"
     assert detect_language(".tsx") == "typescript"
+    assert detect_language(".go") == "go"
+    assert detect_language(".c") == "c"
+    assert detect_language(".cpp") == "cpp"
+    assert detect_language(".hpp") == "cpp"
     assert detect_language(".md") is None
 
 
@@ -36,5 +40,8 @@ def test_is_too_large():
 
 def test_is_parseable_file():
     assert is_parseable_file(".py", "python", False)
+    assert is_parseable_file(".go", "go", False)
+    assert is_parseable_file(".c", "c", False)
+    assert is_parseable_file(".cpp", "cpp", False)
     assert not is_parseable_file(".py", "python", True)
     assert not is_parseable_file(".md", None, False)

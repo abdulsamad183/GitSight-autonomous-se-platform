@@ -34,8 +34,6 @@ async def bulk_create(
 
 async def list_for_snapshot(db: AsyncSession, *, snapshot_id: UUID) -> list[File]:
     result = await db.execute(
-        select(File)
-        .where(File.snapshot_id == snapshot_id)
-        .order_by(File.relative_path)
+        select(File).where(File.snapshot_id == snapshot_id).order_by(File.relative_path)
     )
     return list(result.scalars().all())

@@ -21,7 +21,7 @@ from app.repositories import (
 )
 from app.schemas.analysis import FileCreate, SnapshotCreate, SymbolCreate
 from app.services.indexing.repository_indexing_service import RepositoryIndexingService
-from tests.git_fixtures import commit_file, create_two_branch_fixture, init_git_repo, _run_git
+from tests.git_fixtures import _run_git, commit_file, create_two_branch_fixture, init_git_repo
 
 
 @pytest.fixture

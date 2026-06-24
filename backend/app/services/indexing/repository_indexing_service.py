@@ -105,9 +105,7 @@ class RepositoryIndexingService:
                 if tracker is not None:
                     await tracker.set_stage(STAGE_INDEXING_CHUNKS)
 
-                snapshot = await snapshot_repository.get_for_branch(
-                    self.db, repository_id, branch
-                )
+                snapshot = await snapshot_repository.get_for_branch(self.db, repository_id, branch)
                 if snapshot is None:
                     logger.warning("No snapshot for branch %s; skipping full index", branch)
                     continue
@@ -142,9 +140,7 @@ class RepositoryIndexingService:
                     self.db, repository_id, branch
                 )
                 if branch_snapshot is None or default_commit is None:
-                    logger.warning(
-                        "Missing snapshot for diff indexing on branch %s", branch
-                    )
+                    logger.warning("Missing snapshot for diff indexing on branch %s", branch)
                     continue
 
                 await code_chunk_repository.delete_for_branch(
@@ -182,9 +178,7 @@ class RepositoryIndexingService:
 
             await self.db.commit()
 
-            total_chunks = await code_chunk_repository.count_by_repository(
-                self.db, repository_id
-            )
+            total_chunks = await code_chunk_repository.count_by_repository(self.db, repository_id)
             embedded_chunks = await chunk_embedding_repository.count_for_repository(
                 self.db, repository_id
             )

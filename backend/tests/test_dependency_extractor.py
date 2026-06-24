@@ -51,3 +51,39 @@ def test_skip_unresolvable_import():
     )
 
     assert edges == []
+
+
+def test_resolve_go_import():
+    target_id = uuid4()
+    source_id = uuid4()
+    path_map = {"internal/util/helper.go": target_id, "main.go": source_id}
+    extractor = DependencyExtractor(path_map)
+
+    edges = extractor.resolve_edges(
+        source_file_id=source_id,
+        source_relative_path="main.go",
+        language="go",
+        imports=[
+            ImportDraft(module_path="example.com/project/internal/util", dependency_type="IMPORT")
+        ],
+    )
+
+    assert len(edges) == 1
+    assert edges[0].target_file_id == target_id
+
+
+def test_resolve_c_include():
+    target_id = uuid4()
+    source_id = uuid4()
+    path_map = {"src/foo.h": target_id, "src/main.c": source_id}
+    extractor = DependencyExtractor(path_map)
+
+    edges = extractor.resolve_edges(
+        source_file_id=source_id,
+        source_relative_path="src/main.c",
+        language="c",
+        imports=[ImportDraft(module_path="foo.h", dependency_type="INCLUDE")],
+    )
+
+    assert len(edges) == 1
+    assert edges[0].target_file_id == target_id
