@@ -403,3 +403,117 @@ async def test_refresh_repository(client):
     import shutil
 
     shutil.rmtree(clone_result.clone_path, ignore_errors=True)
+
+
+@pytest.mark.asyncio
+async def test_graph_endpoint_requires_auth(client):
+    from uuid import uuid4
+
+    response = await client.get(f"/api/v1/repositories/{uuid4()}/graph")
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_graph_endpoint_requires_ownership(authenticated_client):
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        analyze_response = await authenticated_client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Graph-Owned"},
+        )
+
+    repository_id = analyze_response.json()["repository_id"]
+
+    other_payload = {
+        "username": "graphother",
+        "email": "graphother@example.com",
+        "password": "securepass123",
+    }
+    await authenticated_client.post("/api/v1/auth/register", json=other_payload)
+    await authenticated_client.post("/api/v1/auth/logout")
+    await authenticated_client.post(
+        "/api/v1/auth/login",
+        json={"email": other_payload["email"], "password": other_payload["password"]},
+    )
+
+    response = await authenticated_client.get(f"/api/v1/repositories/{repository_id}/graph")
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_graph_endpoint_success(client):
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:8]
+    register_payload = {
+        "username": f"graphuser_{suffix}",
+        "email": f"graph_{suffix}@example.com",
+        "password": "securepass123",
+    }
+    register_response = await client.post("/api/v1/auth/register", json=register_payload)
+    assert register_response.status_code == 201
+
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryCloner",
+        ) as mock_cloner_cls,
+        patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
+        patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+        patch(
+            "app.services.analysis.repository_analyzer.sync_pull_requests",
+            new_callable=AsyncMock,
+        ),
+    ):
+        analyze_response = await client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/Graph-Repo"},
+        )
+        assert analyze_response.status_code == 202
+        payload = analyze_response.json()
+        repository_id = payload["repository_id"]
+        job_id = UUID(payload["job_id"])
+
+        clone_result = _make_clone_result(job_id, ["main"])
+        mock_cloner_cls.return_value.clone.return_value = clone_result
+        mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
+        mock_repo_cls.return_value = MagicMock()
+
+        await RepositoryAnalyzer().run(job_id)
+
+    graph_response = await client.get(f"/api/v1/repositories/{repository_id}/graph")
+    assert graph_response.status_code == 200
+    graph = graph_response.json()
+    assert graph["graph_type"] == "structure"
+    assert "nodes" in graph
+    assert "edges" in graph
+    assert "stats" in graph
+    assert any(node["type"] == "repository" for node in graph["nodes"])
+    assert any(node["type"] == "file" for node in graph["nodes"])
+
+    branch_response = await client.get(
+        f"/api/v1/repositories/{repository_id}/graph?branch=main",
+    )
+    assert branch_response.status_code == 200
+    assert branch_response.json()["branch"] == "main"
+
+    unknown_type_response = await client.get(
+        f"/api/v1/repositories/{repository_id}/graph?type=dependency",
+    )
+    assert unknown_type_response.status_code == 400
+
+    delete_response = await client.delete(f"/api/v1/repositories/{repository_id}")
+    assert delete_response.status_code == 204
+
+    import shutil
+
+    shutil.rmtree(clone_result.clone_path, ignore_errors=True)

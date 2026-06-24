@@ -156,6 +156,7 @@ class RepositoryAnalyzer:
                         start_line=symbol.start_line,
                         end_line=symbol.end_line,
                         signature=symbol.signature,
+                        parent_class_name=symbol.parent_class_name,
                     )
                 )
 

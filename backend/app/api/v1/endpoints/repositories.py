@@ -7,6 +7,7 @@ from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.graph import RepositoryGraphResponse
 from app.schemas.repository import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -18,6 +19,7 @@ from app.schemas.repository import (
     RepositorySummaryResponse,
 )
 from app.services import analysis_service, repository_detail_service
+from app.services.graph import repository_graph_service
 from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 
 router = APIRouter()
@@ -138,6 +140,28 @@ async def list_repository_pull_requests(
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/graph", response_model=RepositoryGraphResponse)
+async def get_repository_graph(
+    repository_id: UUID,
+    branch: str | None = None,
+    type: str = "structure",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> RepositoryGraphResponse:
+    try:
+        return await repository_graph_service.get_repository_graph(
+            db,
+            repository_id=repository_id,
+            user_id=current_user.id,
+            branch=branch,
+            graph_type=type,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/{repository_id}/details", response_model=RepositoryDetailResponse)

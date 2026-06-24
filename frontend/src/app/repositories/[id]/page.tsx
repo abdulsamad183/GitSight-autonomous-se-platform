@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { GitGraph, Loader2, RefreshCw } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { JobProgressCard } from "@/components/job-progress-card";
@@ -244,14 +244,25 @@ export default function RepositoryDetailPage() {
                 <PullRequestsSection pullRequests={pullRequests} />
 
                 <div>
-                  <h2 className="mb-4 text-xl font-semibold">
-                    Explore Analysis
-                    {selectedBranch ? (
-                      <span className="ml-2 text-base font-normal text-muted-foreground">
-                        — {selectedBranch}
-                      </span>
-                    ) : null}
-                  </h2>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-xl font-semibold">
+                      Explore Analysis
+                      {selectedBranch ? (
+                        <span className="ml-2 text-base font-normal text-muted-foreground">
+                          — {selectedBranch}
+                        </span>
+                      ) : null}
+                    </h2>
+                    <Link
+                      href={`/repositories/${params.id}/graph${
+                        selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
+                      }`}
+                      className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-200/60 transition hover:brightness-110"
+                    >
+                      <GitGraph className="size-4" />
+                      View Structure Graph
+                    </Link>
+                  </div>
                   <RepositoryDetailTabs
                     files={detail.files}
                     symbols={detail.symbols}

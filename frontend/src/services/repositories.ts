@@ -1,4 +1,5 @@
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
+import type { RepositoryGraph } from "@/types/graph";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -39,6 +40,18 @@ export async function listBranches(repositoryId: string): Promise<BranchSummary[
 
 export async function listPullRequests(repositoryId: string): Promise<PullRequestListItem[]> {
   return apiGet<PullRequestListItem[]>(`/api/v1/repositories/${repositoryId}/pull-requests`);
+}
+
+export async function getRepositoryGraph(
+  repositoryId: string,
+  branch?: string,
+  graphType = "structure",
+): Promise<RepositoryGraph> {
+  const params = new URLSearchParams();
+  if (branch) params.set("branch", branch);
+  if (graphType !== "structure") params.set("type", graphType);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiGet<RepositoryGraph>(`/api/v1/repositories/${repositoryId}/graph${query}`);
 }
 
 export async function deleteRepository(repositoryId: string): Promise<void> {

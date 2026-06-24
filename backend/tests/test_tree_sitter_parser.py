@@ -33,6 +33,11 @@ def test_python_symbol_extraction():
     assert ("get_user", "method") in names
     assert ("create_user", "function") in names
 
+    get_user = next(s for s in result.symbols if s.symbol_name == "get_user")
+    assert get_user.parent_class_name == "UserService"
+    create_user = next(s for s in result.symbols if s.symbol_name == "create_user")
+    assert create_user.parent_class_name is None
+
 
 def test_python_import_extraction():
     parser = TreeSitterParser()
@@ -51,6 +56,9 @@ def test_javascript_symbol_extraction():
     assert ("AppService", "class") in names
     assert ("run", "method") in names
     assert ("main", "function") in names
+
+    run_method = next(s for s in result.symbols if s.symbol_name == "run")
+    assert run_method.parent_class_name == "AppService"
 
 
 def test_javascript_import_extraction():

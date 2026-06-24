@@ -40,5 +40,13 @@ class Symbol(BaseModel):
     start_line: Mapped[int] = mapped_column(Integer, nullable=False)
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
     signature: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parent_symbol_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("symbols.id", ondelete="SET NULL"),
+        index=True,
+        nullable=True,
+    )
 
     file = relationship("File", back_populates="symbols")
+    parent = relationship("Symbol", remote_side="Symbol.id", back_populates="children")
+    children = relationship("Symbol", back_populates="parent")

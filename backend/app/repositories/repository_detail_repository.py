@@ -44,3 +44,22 @@ async def list_dependencies_by_snapshot(
         .order_by(source.c.relative_path, target.c.relative_path)
     )
     return list(result.all())
+
+
+async def list_files_for_graph(db: AsyncSession, snapshot_id: UUID) -> list[File]:
+    result = await db.execute(
+        select(File)
+        .where(File.snapshot_id == snapshot_id, File.is_binary.is_(False))
+        .order_by(File.relative_path)
+    )
+    return list(result.scalars().all())
+
+
+async def list_symbols_for_graph(db: AsyncSession, snapshot_id: UUID) -> list[tuple[Symbol, str]]:
+    result = await db.execute(
+        select(Symbol, File.relative_path)
+        .join(File, Symbol.file_id == File.id)
+        .where(Symbol.snapshot_id == snapshot_id)
+        .order_by(File.relative_path, Symbol.start_line)
+    )
+    return list(result.all())

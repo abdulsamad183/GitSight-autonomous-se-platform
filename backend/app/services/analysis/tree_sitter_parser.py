@@ -18,6 +18,7 @@ class SymbolDraft:
     start_line: int
     end_line: int
     signature: str | None
+    parent_class_name: str | None = None
 
 
 @dataclass
@@ -62,36 +63,43 @@ class TreeSitterParser:
     def _parse_python(self, root: Node, source: bytes) -> ParseResult:
         symbols: list[SymbolDraft] = []
         imports: list[ImportDraft] = []
+        class_stack: list[str] = []
 
         def walk(node: Node, inside_class: bool = False) -> None:
             if node.type == "class_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
+                    class_name = self._node_text(name_node, source)
                     symbols.append(
                         SymbolDraft(
-                            symbol_name=self._node_text(name_node, source),
+                            symbol_name=class_name,
                             symbol_type="class",
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
                         )
                     )
+                    class_stack.append(class_name)
                 body = node.child_by_field_name("body")
                 if body:
                     for child in body.children:
                         walk(child, inside_class=True)
+                if name_node:
+                    class_stack.pop()
                 return
 
             if node.type == "function_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
+                    is_method = inside_class or bool(class_stack)
                     symbols.append(
                         SymbolDraft(
                             symbol_name=self._node_text(name_node, source),
-                            symbol_type="method" if inside_class else "function",
+                            symbol_type="method" if is_method else "function",
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
+                            parent_class_name=class_stack[-1] if is_method and class_stack else None,
                         )
                     )
                 return
@@ -133,39 +141,45 @@ class TreeSitterParser:
     def _parse_javascript(self, root: Node, source: bytes) -> ParseResult:
         symbols: list[SymbolDraft] = []
         imports: list[ImportDraft] = []
+        class_stack: list[str] = []
 
         def walk(node: Node, inside_class: bool = False) -> None:
             if node.type == "class_declaration":
                 name_node = node.child_by_field_name("name")
                 if name_node:
+                    class_name = self._node_text(name_node, source)
                     symbols.append(
                         SymbolDraft(
-                            symbol_name=self._node_text(name_node, source),
+                            symbol_name=class_name,
                             symbol_type="class",
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
                         )
                     )
+                    class_stack.append(class_name)
                 body = node.child_by_field_name("body")
                 if body:
                     for child in body.children:
                         walk(child, inside_class=True)
+                if name_node:
+                    class_stack.pop()
                 return
 
             if node.type in {"function_declaration", "method_definition"}:
                 name_node = node.child_by_field_name("name")
                 if name_node:
-                    symbol_type = (
-                        "method" if inside_class or node.type == "method_definition" else "function"
+                    is_method = (
+                        inside_class or bool(class_stack) or node.type == "method_definition"
                     )
                     symbols.append(
                         SymbolDraft(
                             symbol_name=self._node_text(name_node, source),
-                            symbol_type=symbol_type,
+                            symbol_type="method" if is_method else "function",
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
+                            parent_class_name=class_stack[-1] if is_method and class_stack else None,
                         )
                     )
                 return

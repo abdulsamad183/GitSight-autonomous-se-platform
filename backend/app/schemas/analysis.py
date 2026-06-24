@@ -21,6 +21,7 @@ class SymbolCreate:
     start_line: int
     end_line: int
     signature: str | None
+    parent_class_name: str | None = None
 
 
 @dataclass
