@@ -100,10 +100,14 @@ async def test_repository_analyzer_marks_completed(analysis_records):
                 "app.services.analysis.repository_analyzer.sync_pull_requests",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+            ) as mock_indexing_cls,
         ):
             mock_cloner_cls.return_value.clone.return_value = clone_result
             mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
             mock_repo_cls.return_value = MagicMock()
+            mock_indexing_cls.return_value.index_repository = AsyncMock()
             analyzer = RepositoryAnalyzer()
             await analyzer.run(job_id)
 
@@ -151,10 +155,14 @@ async def test_repository_analyzer_creates_snapshot_per_branch(analysis_records)
                 "app.services.analysis.repository_analyzer.sync_pull_requests",
                 new_callable=AsyncMock,
             ),
+            patch(
+                "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+            ) as mock_indexing_cls,
         ):
             mock_cloner_cls.return_value.clone.return_value = clone_result
             mock_cloner_cls.return_value.checkout_branch.side_effect = ["abc123", "def456"]
             mock_repo_cls.return_value = MagicMock()
+            mock_indexing_cls.return_value.index_repository = AsyncMock()
             analyzer = RepositoryAnalyzer()
             await analyzer.run(job_id)
 
@@ -216,10 +224,14 @@ async def _run_analyzer(job_id, clone_result, checkout_hashes: list[str], skip_u
             "app.services.analysis.repository_analyzer.sync_pull_requests",
             new_callable=AsyncMock,
         ),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+        ) as mock_indexing_cls,
     ):
         mock_cloner_cls.return_value.clone.return_value = clone_result
         mock_cloner_cls.return_value.checkout_branch.side_effect = checkout_hashes
         mock_repo_cls.return_value = MagicMock()
+        mock_indexing_cls.return_value.index_repository = AsyncMock()
         analyzer = RepositoryAnalyzer()
         await analyzer.run(job_id, skip_unchanged=skip_unchanged)
 
@@ -338,11 +350,15 @@ async def test_repository_analyzer_completes_when_pull_request_sync_fails(analys
                 "app.services.analysis.repository_analyzer.sync_pull_requests",
                 new_callable=AsyncMock,
             ) as mock_sync_pull_requests,
+            patch(
+                "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+            ) as mock_indexing_cls,
         ):
             mock_cloner_cls.return_value.clone.return_value = clone_result
             mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
             mock_repo_cls.return_value = MagicMock()
             mock_sync_pull_requests.side_effect = RuntimeError("GitHub unavailable")
+            mock_indexing_cls.return_value.index_repository = AsyncMock()
 
             analyzer = RepositoryAnalyzer()
             await analyzer.run(job_id)

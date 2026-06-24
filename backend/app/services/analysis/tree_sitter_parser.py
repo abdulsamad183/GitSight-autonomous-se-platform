@@ -65,15 +65,28 @@ class TreeSitterParser:
         imports: list[ImportDraft] = []
         class_stack: list[str] = []
 
+        def _is_enum_class(node: Node) -> bool:
+            argument_list = node.child_by_field_name("superclasses")
+            if argument_list is None:
+                return False
+            enum_names = {"Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"}
+            for child in argument_list.children:
+                if child.type in {"identifier", "attribute"}:
+                    base_name = self._node_text(child, source).split(".")[-1]
+                    if base_name in enum_names:
+                        return True
+            return False
+
         def walk(node: Node, inside_class: bool = False) -> None:
             if node.type == "class_definition":
                 name_node = node.child_by_field_name("name")
                 if name_node:
                     class_name = self._node_text(name_node, source)
+                    symbol_type = "enum" if _is_enum_class(node) else "class"
                     symbols.append(
                         SymbolDraft(
                             symbol_name=class_name,
-                            symbol_type="class",
+                            symbol_type=symbol_type,
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
@@ -146,6 +159,34 @@ class TreeSitterParser:
         class_stack: list[str] = []
 
         def walk(node: Node, inside_class: bool = False) -> None:
+            if node.type == "interface_declaration":
+                name_node = node.child_by_field_name("name")
+                if name_node:
+                    symbols.append(
+                        SymbolDraft(
+                            symbol_name=self._node_text(name_node, source),
+                            symbol_type="interface",
+                            start_line=node.start_point[0] + 1,
+                            end_line=node.end_point[0] + 1,
+                            signature=self._node_text(node, source)[:200],
+                        )
+                    )
+                return
+
+            if node.type == "enum_declaration":
+                name_node = node.child_by_field_name("name")
+                if name_node:
+                    symbols.append(
+                        SymbolDraft(
+                            symbol_name=self._node_text(name_node, source),
+                            symbol_type="enum",
+                            start_line=node.start_point[0] + 1,
+                            end_line=node.end_point[0] + 1,
+                            signature=self._node_text(node, source)[:200],
+                        )
+                    )
+                return
+
             if node.type == "class_declaration":
                 name_node = node.child_by_field_name("name")
                 if name_node:

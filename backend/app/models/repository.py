@@ -1,7 +1,8 @@
 import enum
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,6 +14,13 @@ class RepositoryStatus(str, enum.Enum):
     ACTIVE = "active"
     FAILED = "failed"
     ARCHIVED = "archived"
+
+
+class IndexingStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class Repository(BaseModel):
@@ -36,6 +44,20 @@ class Repository(BaseModel):
         default=RepositoryStatus.PENDING,
         nullable=False,
     )
+    indexing_status: Mapped[IndexingStatus] = mapped_column(
+        Enum(IndexingStatus, name="indexing_status", values_callable=enum_values),
+        default=IndexingStatus.PENDING,
+        nullable=False,
+    )
+    total_chunks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    embedded_chunks: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    indexing_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    indexing_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    indexing_duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     user = relationship("User", back_populates="repositories")
     jobs = relationship(
@@ -55,6 +77,11 @@ class Repository(BaseModel):
     )
     pull_requests = relationship(
         "PullRequest",
+        back_populates="repository",
+        cascade="all, delete-orphan",
+    )
+    code_chunks = relationship(
+        "CodeChunk",
         back_populates="repository",
         cascade="all, delete-orphan",
     )

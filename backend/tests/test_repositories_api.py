@@ -302,6 +302,9 @@ async def test_list_branches_and_details_by_branch(client):
             "app.services.analysis.repository_analyzer.sync_pull_requests",
             new_callable=AsyncMock,
         ),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+        ) as mock_indexing_cls,
     ):
         analyze_response = await client.post(
             ANALYZE_URL,
@@ -316,6 +319,7 @@ async def test_list_branches_and_details_by_branch(client):
         mock_cloner_cls.return_value.clone.return_value = clone_result
         mock_cloner_cls.return_value.checkout_branch.side_effect = ["abc123", "def456"]
         mock_repo_cls.return_value = MagicMock()
+        mock_indexing_cls.return_value.index_repository = AsyncMock()
 
         await RepositoryAnalyzer().run(job_id)
 
@@ -372,6 +376,9 @@ async def test_refresh_repository(client):
             "app.services.analysis.repository_analyzer.sync_pull_requests",
             new_callable=AsyncMock,
         ),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+        ) as mock_indexing_cls,
     ):
         analyze_response = await client.post(
             ANALYZE_URL,
@@ -386,6 +393,7 @@ async def test_refresh_repository(client):
         mock_cloner_cls.return_value.clone.return_value = clone_result
         mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
         mock_repo_cls.return_value = MagicMock()
+        mock_indexing_cls.return_value.index_repository = AsyncMock()
 
         await RepositoryAnalyzer().run(job_id)
 
@@ -473,6 +481,9 @@ async def test_graph_endpoint_success(client):
             "app.services.analysis.repository_analyzer.sync_pull_requests",
             new_callable=AsyncMock,
         ),
+        patch(
+            "app.services.analysis.repository_analyzer.RepositoryIndexingService",
+        ) as mock_indexing_cls,
     ):
         analyze_response = await client.post(
             ANALYZE_URL,
@@ -487,6 +498,7 @@ async def test_graph_endpoint_success(client):
         mock_cloner_cls.return_value.clone.return_value = clone_result
         mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
         mock_repo_cls.return_value = MagicMock()
+        mock_indexing_cls.return_value.index_repository = AsyncMock()
 
         await RepositoryAnalyzer().run(job_id)
 

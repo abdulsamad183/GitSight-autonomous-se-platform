@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     clone_depth: int = 0
     github_token: str | None = None
 
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_dimension: int = 384
+    embedding_batch_size: int = 32
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

@@ -13,7 +13,8 @@ ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project \
+    && uv pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 RUN uv sync --frozen --no-dev

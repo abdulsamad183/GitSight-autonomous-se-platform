@@ -1,9 +1,10 @@
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.repository import Repository, RepositoryStatus
+from app.models.repository import IndexingStatus, Repository, RepositoryStatus
 
 
 async def get_by_user_id(db: AsyncSession, user_id: UUID) -> list[Repository]:
@@ -95,6 +96,37 @@ async def update_status(
     status: RepositoryStatus,
 ) -> Repository:
     repository.status = status
+    await db.flush()
+    return repository
+
+
+async def get_by_id(db: AsyncSession, repo_id: UUID) -> Repository | None:
+    result = await db.execute(select(Repository).where(Repository.id == repo_id))
+    return result.scalar_one_or_none()
+
+
+async def update_indexing_status(
+    db: AsyncSession,
+    repository: Repository,
+    *,
+    indexing_status: IndexingStatus,
+    total_chunks: int | None = None,
+    embedded_chunks: int | None = None,
+    indexing_started_at: datetime | None = None,
+    indexing_completed_at: datetime | None = None,
+    indexing_duration_seconds: float | None = None,
+) -> Repository:
+    repository.indexing_status = indexing_status
+    if total_chunks is not None:
+        repository.total_chunks = total_chunks
+    if embedded_chunks is not None:
+        repository.embedded_chunks = embedded_chunks
+    if indexing_started_at is not None:
+        repository.indexing_started_at = indexing_started_at
+    if indexing_completed_at is not None:
+        repository.indexing_completed_at = indexing_completed_at
+    if indexing_duration_seconds is not None:
+        repository.indexing_duration_seconds = indexing_duration_seconds
     await db.flush()
     return repository
 

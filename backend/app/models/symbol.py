@@ -12,6 +12,8 @@ class SymbolType(str, enum.Enum):
     CLASS = "class"
     FUNCTION = "function"
     METHOD = "method"
+    INTERFACE = "interface"
+    ENUM = "enum"
 
 
 class Symbol(BaseModel):

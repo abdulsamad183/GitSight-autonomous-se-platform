@@ -8,6 +8,8 @@ STAGE_DISCOVERING = ("Discovering Branches", 12)
 STAGE_DISCOVERING_PRS = ("Discovering Pull Requests", 91)
 STAGE_SYNCING_PRS = ("Synchronizing Pull Requests", 93)
 STAGE_CLEANING = ("Cleaning Temporary Files", 95)
+STAGE_INDEXING_CHUNKS = ("Generating Code Chunks", 92)
+STAGE_INDEXING_EMBEDDINGS = ("Generating Embeddings", 96)
 STAGE_COMPLETED = ("Completed", 100)
 
 

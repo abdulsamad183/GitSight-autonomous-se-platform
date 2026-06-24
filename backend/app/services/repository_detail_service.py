@@ -26,6 +26,13 @@ from app.schemas.repository import (
 from app.services.exceptions import NotFoundError
 
 
+async def get_repository_or_raise(db: AsyncSession, *, repository_id: UUID, user_id: UUID):
+    repository = await repository_repository.get_by_id_for_user(db, repository_id, user_id)
+    if repository is None:
+        raise NotFoundError("Repository not found")
+    return repository
+
+
 def _map_job_status(status: JobStatus) -> str:
     if status == JobStatus.QUEUED:
         return "PENDING"

@@ -24,3 +24,7 @@ class ForbiddenError(AppError):
 
 class AnalysisError(AppError):
     """Repository analysis failed."""
+
+
+class IndexingError(AppError):
+    """Repository indexing failed."""

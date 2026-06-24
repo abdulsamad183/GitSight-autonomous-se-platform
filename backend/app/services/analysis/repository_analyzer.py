@@ -31,6 +31,7 @@ from app.services.analysis.pull_request_sync import sync_pull_requests
 from app.services.analysis.repository_cloner import RepositoryCloner
 from app.services.analysis.tree_sitter_parser import TreeSitterParser
 from app.services.exceptions import AnalysisError
+from app.services.indexing.repository_indexing_service import RepositoryIndexingService
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +239,7 @@ class RepositoryAnalyzer:
 
                 analyzed_count = 0
                 updated_count = 0
+                updated_branches: list[str] = []
                 for index, branch in enumerate(branches):
                     success, updated = await self._analyze_branch(
                         db,
@@ -256,6 +258,7 @@ class RepositoryAnalyzer:
                         analyzed_count += 1
                     if updated:
                         updated_count += 1
+                        updated_branches.append(branch)
 
                 if analyzed_count == 0:
                     raise AnalysisError("Failed to analyze any branches")
@@ -268,6 +271,25 @@ class RepositoryAnalyzer:
                 )
                 await repository_repository.update_status(db, repository, RepositoryStatus.ACTIVE)
                 await db.commit()
+
+                branches_to_index = updated_branches if skip_unchanged else branches
+                if branches_to_index:
+                    try:
+                        indexing_service = RepositoryIndexingService(db)
+                        await indexing_service.index_repository(
+                            repository_id=repository.id,
+                            clone_path=clone_result.clone_path,
+                            branches=branches_to_index,
+                            tracker=tracker,
+                        )
+                    except Exception as exc:
+                        await db.rollback()
+                        logger.warning(
+                            "Indexing failed for repository %s: %s",
+                            repository.id,
+                            exc,
+                        )
+                        await tracker.log_warning(f"Indexing failed: {exc}")
 
                 try:
                     await sync_pull_requests(

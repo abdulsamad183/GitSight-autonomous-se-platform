@@ -1,7 +1,10 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
+from app.models.file import File
 from app.models.symbol import Symbol, SymbolType
 from app.schemas.analysis import SymbolCreate
 
@@ -71,3 +74,32 @@ async def bulk_create(
 
     await db.flush()
     return records
+
+
+async def list_for_snapshot(
+    db: AsyncSession,
+    *,
+    snapshot_id: UUID,
+) -> list[Symbol]:
+    result = await db.execute(
+        select(Symbol)
+        .where(Symbol.snapshot_id == snapshot_id)
+        .options(selectinload(Symbol.parent))
+        .order_by(Symbol.file_id, Symbol.start_line)
+    )
+    return list(result.scalars().all())
+
+
+async def list_for_snapshot_with_files(
+    db: AsyncSession,
+    *,
+    snapshot_id: UUID,
+) -> list[tuple[Symbol, File]]:
+    result = await db.execute(
+        select(Symbol, File)
+        .join(File, File.id == Symbol.file_id)
+        .where(Symbol.snapshot_id == snapshot_id)
+        .options(selectinload(Symbol.parent))
+        .order_by(File.relative_path, Symbol.start_line)
+    )
+    return list(result.all())

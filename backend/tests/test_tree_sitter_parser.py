@@ -23,6 +23,14 @@ class AppService {
 function main() {}
 """
 
+PYTHON_ENUM_SOURCE = b"""
+from enum import Enum
+
+class Status(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+"""
+
 
 def test_python_symbol_extraction():
     parser = TreeSitterParser()
@@ -68,3 +76,11 @@ def test_javascript_import_extraction():
     modules = {item.module_path for item in result.imports}
     assert "./utils/foo" in modules
     assert "../lib/bar" in modules
+
+
+def test_python_enum_extraction():
+    parser = TreeSitterParser()
+    result = parser.parse_file(language="python", source=PYTHON_ENUM_SOURCE)
+
+    names = {(s.symbol_name, s.symbol_type) for s in result.symbols}
+    assert ("Status", "enum") in names
