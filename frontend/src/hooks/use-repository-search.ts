@@ -9,6 +9,16 @@ const DEBOUNCE_MS = 400;
 const RECENT_SEARCHES_KEY = "gitsight_recent_searches";
 const MAX_RECENT = 5;
 
+function loadRecentSearches(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
+    return stored ? (JSON.parse(stored) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 interface UseRepositorySearchOptions {
   repositoryId: string;
   branch?: string | null;
@@ -29,18 +39,9 @@ export function useRepositorySearch({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
-      if (stored) setRecentSearches(JSON.parse(stored) as string[]);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   const saveRecentSearch = useCallback((q: string) => {
     setRecentSearches((prev) => {
@@ -122,8 +123,7 @@ export function useRepositorySearch({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) {
-      setResults([]);
-      setTotalResults(0);
+      abortRef.current?.abort();
       return;
     }
     debounceRef.current = setTimeout(() => {
@@ -134,18 +134,22 @@ export function useRepositorySearch({
     };
   }, [query, mode, branch, runSearch]);
 
+  const trimmedQuery = query.trim();
+  const visibleResults = trimmedQuery ? results : [];
+  const visibleTotalResults = trimmedQuery ? totalResults : 0;
+
   return {
     query,
     setQuery,
-    results,
-    totalResults,
+    results: visibleResults,
+    totalResults: visibleTotalResults,
     executionTimeMs,
     loading,
     error,
     search,
     loadMore,
     clear,
-    hasMore: results.length < totalResults,
+    hasMore: visibleResults.length < visibleTotalResults,
     recentSearches,
   };
 }

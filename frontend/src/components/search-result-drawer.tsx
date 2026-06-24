@@ -12,22 +12,20 @@ interface SearchResultDrawerProps {
   onClose: () => void;
 }
 
-export function SearchResultDrawer({
+function SearchResultDrawerContent({
   repositoryId,
   result,
   onClose,
-}: SearchResultDrawerProps) {
+}: {
+  repositoryId: string;
+  result: SearchResult;
+  onClose: () => void;
+}) {
   const [chunk, setChunk] = useState<ChunkDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!result) {
-      setChunk(null);
-      setError(null);
-      return;
-    }
-
     let cancelled = false;
     const load = async () => {
       setLoading(true);
@@ -49,9 +47,7 @@ export function SearchResultDrawer({
     return () => {
       cancelled = true;
     };
-  }, [repositoryId, result]);
-
-  if (!result) return null;
+  }, [repositoryId, result.chunk_id]);
 
   const lines = chunk?.content.split("\n") ?? [];
   const startLine = chunk?.start_line ?? result.start_line;
@@ -113,5 +109,22 @@ export function SearchResultDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+export function SearchResultDrawer({
+  repositoryId,
+  result,
+  onClose,
+}: SearchResultDrawerProps) {
+  if (!result) return null;
+
+  return (
+    <SearchResultDrawerContent
+      key={result.chunk_id}
+      repositoryId={repositoryId}
+      result={result}
+      onClose={onClose}
+    />
   );
 }
