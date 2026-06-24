@@ -36,6 +36,10 @@ export interface RepositorySummary {
   branches_count: number;
   branches_truncated: boolean;
   available_branches: string[];
+  total_pull_requests: number;
+  open_pull_requests: number;
+  closed_pull_requests: number;
+  merged_pull_requests: number;
 }
 
 export interface RepositoryListItem {
@@ -50,6 +54,10 @@ export interface RepositoryListItem {
   files_count: number;
   branches_count: number;
   branches_truncated: boolean;
+  total_pull_requests: number;
+  open_pull_requests: number;
+  closed_pull_requests: number;
+  merged_pull_requests: number;
   updated_at: string;
 }
 
@@ -76,6 +84,24 @@ export interface DependencyItem {
   source_path: string;
   target_path: string;
   dependency_type: string;
+}
+
+export interface PullRequestListItem {
+  number: number;
+  title: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  author: string;
+  is_merged: boolean;
+  is_draft: boolean;
+  source_branch: string | null;
+  target_branch: string | null;
+  html_url: string | null;
+  github_created_at: string | null;
+  github_updated_at: string | null;
+  description?: string | null;
+  github_closed_at?: string | null;
+  github_merged_at?: string | null;
+  last_synced_at?: string | null;
 }
 
 export interface RepositoryDetail extends RepositorySummary {

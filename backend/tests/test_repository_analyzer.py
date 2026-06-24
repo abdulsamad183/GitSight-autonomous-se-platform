@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,7 +12,12 @@ from app.core.security import hash_password
 from app.models.job import JobStatus, JobType
 from app.models.repository import Repository, RepositoryStatus
 from app.models.user import User
-from app.repositories import job_repository, repository_repository, snapshot_repository
+from app.repositories import (
+    job_event_repository,
+    job_repository,
+    repository_repository,
+    snapshot_repository,
+)
 from app.services.analysis.repository_analyzer import RepositoryAnalyzer
 from app.services.analysis.repository_cloner import CloneResult
 from app.services.exceptions import AnalysisError
@@ -91,6 +96,10 @@ async def test_repository_analyzer_marks_completed(analysis_records):
             patch("app.services.analysis.repository_analyzer.RepositoryCloner") as mock_cloner_cls,
             patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
             patch("app.services.analysis.repository_analyzer.shutil.rmtree") as mock_rmtree,
+            patch(
+                "app.services.analysis.repository_analyzer.sync_pull_requests",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_cloner_cls.return_value.clone.return_value = clone_result
             mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
@@ -138,6 +147,10 @@ async def test_repository_analyzer_creates_snapshot_per_branch(analysis_records)
             patch("app.services.analysis.repository_analyzer.RepositoryCloner") as mock_cloner_cls,
             patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
             patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+            patch(
+                "app.services.analysis.repository_analyzer.sync_pull_requests",
+                new_callable=AsyncMock,
+            ),
         ):
             mock_cloner_cls.return_value.clone.return_value = clone_result
             mock_cloner_cls.return_value.checkout_branch.side_effect = ["abc123", "def456"]
@@ -199,6 +212,10 @@ async def _run_analyzer(job_id, clone_result, checkout_hashes: list[str], skip_u
         patch("app.services.analysis.repository_analyzer.RepositoryCloner") as mock_cloner_cls,
         patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
         patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+        patch(
+            "app.services.analysis.repository_analyzer.sync_pull_requests",
+            new_callable=AsyncMock,
+        ),
     ):
         mock_cloner_cls.return_value.clone.return_value = clone_result
         mock_cloner_cls.return_value.checkout_branch.side_effect = checkout_hashes
@@ -305,3 +322,53 @@ async def test_repository_analyzer_replaces_changed_branch_on_refresh(analysis_r
                 Path("/tmp/gitsight-test") / str(refresh_job_id),
                 ignore_errors=True,
             )
+
+
+@pytest.mark.asyncio
+async def test_repository_analyzer_completes_when_pull_request_sync_fails(analysis_records):
+    job_id, _, repository_id = analysis_records
+    clone_result = _make_clone_result(job_id, ["main"])
+
+    try:
+        with (
+            patch("app.services.analysis.repository_analyzer.RepositoryCloner") as mock_cloner_cls,
+            patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
+            patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+            patch(
+                "app.services.analysis.repository_analyzer.sync_pull_requests",
+                new_callable=AsyncMock,
+            ) as mock_sync_pull_requests,
+        ):
+            mock_cloner_cls.return_value.clone.return_value = clone_result
+            mock_cloner_cls.return_value.checkout_branch.return_value = "abc123"
+            mock_repo_cls.return_value = MagicMock()
+            mock_sync_pull_requests.side_effect = RuntimeError("GitHub unavailable")
+
+            analyzer = RepositoryAnalyzer()
+            await analyzer.run(job_id)
+
+        settings = get_settings()
+        engine = create_async_engine(
+            settings.database_url,
+            poolclass=NullPool,
+            connect_args={"statement_cache_size": 0},
+        )
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with session_factory() as db:
+            job = await job_repository.get_by_id(db, job_id)
+            assert job is not None
+            assert job.status == JobStatus.COMPLETED
+
+            repository = await db.get(Repository, repository_id)
+            assert repository is not None
+            assert repository.status == RepositoryStatus.ACTIVE
+
+            events = await job_event_repository.list_for_job(db, job_id)
+            assert any(
+                "Warning: PR sync failed: GitHub unavailable" in event.message for event in events
+            )
+        await engine.dispose()
+    finally:
+        import shutil
+
+        shutil.rmtree(clone_result.clone_path, ignore_errors=True)

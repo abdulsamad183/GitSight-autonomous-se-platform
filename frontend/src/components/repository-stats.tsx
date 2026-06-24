@@ -6,7 +6,10 @@ import {
   FunctionSquare,
   GitBranch,
   GitCommit,
+  GitMerge,
+  GitPullRequest,
   Link2,
+  CircleDot,
   Workflow,
 } from "lucide-react";
 
@@ -46,6 +49,27 @@ const STAT_CONFIG = [
     gradient: "from-rose-500 to-pink-500",
     bg: "bg-rose-50 dark:bg-rose-950/30",
   },
+  {
+    key: "pullRequests",
+    label: "Pull Requests",
+    icon: GitPullRequest,
+    gradient: "from-indigo-500 to-blue-500",
+    bg: "bg-indigo-50 dark:bg-indigo-950/30",
+  },
+  {
+    key: "openPullRequests",
+    label: "Open PRs",
+    icon: CircleDot,
+    gradient: "from-green-500 to-emerald-500",
+    bg: "bg-green-50 dark:bg-green-950/30",
+  },
+  {
+    key: "mergedPullRequests",
+    label: "Merged PRs",
+    icon: GitMerge,
+    gradient: "from-purple-500 to-fuchsia-500",
+    bg: "bg-purple-50 dark:bg-purple-950/30",
+  },
 ] as const;
 
 interface RepositoryStatsGridProps {
@@ -54,6 +78,9 @@ interface RepositoryStatsGridProps {
   functions_count: number;
   methods_count: number;
   dependencies_count: number;
+  total_pull_requests: number;
+  open_pull_requests: number;
+  merged_pull_requests: number;
 }
 
 export function RepositoryStatsGrid(props: RepositoryStatsGridProps) {
@@ -63,10 +90,13 @@ export function RepositoryStatsGrid(props: RepositoryStatsGridProps) {
     functions: props.functions_count,
     methods: props.methods_count,
     dependencies: props.dependencies_count,
+    pullRequests: props.total_pull_requests,
+    openPullRequests: props.open_pull_requests,
+    mergedPullRequests: props.merged_pull_requests,
   };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {STAT_CONFIG.map(({ key, label, icon: Icon, gradient, bg }) => (
         <div
           key={key}

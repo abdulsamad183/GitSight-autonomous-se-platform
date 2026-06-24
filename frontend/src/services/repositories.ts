@@ -3,6 +3,7 @@ import type {
   AnalyzeRequest,
   AnalyzeResponse,
   BranchSummary,
+  PullRequestListItem,
   RepositoryDetail,
   RepositoryListItem,
   RepositorySummary,
@@ -34,6 +35,10 @@ export async function getRepositoryDetails(
 
 export async function listBranches(repositoryId: string): Promise<BranchSummary[]> {
   return apiGet<BranchSummary[]>(`/api/v1/repositories/${repositoryId}/branches`);
+}
+
+export async function listPullRequests(repositoryId: string): Promise<PullRequestListItem[]> {
+  return apiGet<PullRequestListItem[]>(`/api/v1/repositories/${repositoryId}/pull-requests`);
 }
 
 export async function deleteRepository(repositoryId: string): Promise<void> {

@@ -38,9 +38,11 @@ export function RepositoryUrlForm({ onAnalyzeStarted }: RepositoryUrlFormProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <Label htmlFor="github-url">GitHub Repository URL</Label>
+        <Label htmlFor="github-url" className="text-slate-700">
+          GitHub Repository URL
+        </Label>
         <Input
           id="github-url"
           type="url"
@@ -48,10 +50,15 @@ export function RepositoryUrlForm({ onAnalyzeStarted }: RepositoryUrlFormProps) 
           value={githubUrl}
           onChange={(e) => setGithubUrl(e.target.value)}
           required
+          className="border-violet-100 bg-white/80 text-slate-950 placeholder:text-slate-400 shadow-sm focus-visible:ring-violet-300/60"
         />
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={isSubmitting || !githubUrl.trim()}>
+      <Button
+        type="submit"
+        disabled={isSubmitting || !githubUrl.trim()}
+        className="h-10 w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-600 text-white shadow-lg shadow-violet-200 hover:from-violet-500 hover:via-indigo-500 hover:to-sky-500"
+      >
         {isSubmitting ? "Starting..." : "Analyze"}
       </Button>
     </form>

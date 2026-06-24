@@ -44,6 +44,15 @@ function isJobActive(analysisStatus: string) {
   return analysisStatus === "RUNNING" || analysisStatus === "PENDING";
 }
 
+function formatLastActive(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export function AnalyzedRepositories({
   repositories,
   isLoading,
@@ -111,8 +120,8 @@ export function AnalyzedRepositories({
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
+      <div className="flex items-center gap-2 rounded-2xl border border-violet-100 bg-white/70 p-5 text-sm text-slate-500">
+        <Loader2 className="size-4 animate-spin text-violet-600" />
         Loading analyzed repos...
       </div>
     );
@@ -120,10 +129,10 @@ export function AnalyzedRepositories({
 
   if (repositories.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-violet-300/60 bg-violet-50/50 p-6 text-center dark:border-violet-500/30 dark:bg-violet-950/20">
-        <FolderGit2 className="mx-auto size-8 text-violet-500" />
-        <p className="mt-2 text-sm font-medium">No analyzed repos yet</p>
-        <p className="text-xs text-muted-foreground">
+      <div className="rounded-2xl border border-dashed border-violet-200 bg-white/70 p-8 text-center">
+        <FolderGit2 className="mx-auto size-9 text-violet-600" />
+        <p className="mt-3 text-sm font-semibold text-slate-950">No analyzed repos yet</p>
+        <p className="text-xs text-slate-500">
           Analyze a GitHub URL and it will appear here for quick access.
         </p>
       </div>
@@ -132,14 +141,22 @@ export function AnalyzedRepositories({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <div className="hidden grid-cols-[minmax(0,1.6fr)_0.8fr_0.6fr_0.6fr_0.8fr_auto] gap-4 px-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 lg:grid">
+          <span>Repo Name</span>
+          <span>Status</span>
+          <span>Branches</span>
+          <span>PRs</span>
+          <span>Last Active</span>
+          <span />
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={handleClearAll}
           disabled={clearingAll || deletingId !== null || refreshingId !== null}
-          className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/40"
+          className="ml-auto border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
         >
           {clearingAll ? (
             <Loader2 className="size-4 animate-spin" />
@@ -150,88 +167,104 @@ export function AnalyzedRepositories({
         </Button>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-rose-600">{error}</p>}
 
-      {repositories.map((repo) => {
-        const displayName = `${repo.owner}/${repo.repository_name}`;
-        const isDeleting = deletingId === repo.id;
-        const isRefreshing = refreshingId === repo.id;
-        const jobActive =
-          isJobActive(repo.analysis_status) || activeJobRepositoryId === repo.id;
+      <div className="max-h-[520px] space-y-3 overflow-y-auto pr-2">
+        {repositories.map((repo) => {
+          const displayName = `${repo.owner}/${repo.repository_name}`;
+          const isDeleting = deletingId === repo.id;
+          const isRefreshing = refreshingId === repo.id;
+          const jobActive =
+            isJobActive(repo.analysis_status) || activeJobRepositoryId === repo.id;
 
-        return (
-          <div
-            key={repo.id}
-            className="group flex items-center gap-2 rounded-xl border border-transparent bg-gradient-to-r from-slate-50 to-violet-50 p-4 transition hover:border-violet-200 hover:shadow-md dark:from-slate-900 dark:to-violet-950/40 dark:hover:border-violet-800"
-          >
-            <Link
-              href={`/repositories/${repo.id}`}
-              onClick={() => onSelect?.(repo.id)}
-              className="min-w-0 flex-1"
+          return (
+            <div
+              key={repo.id}
+              className="group relative grid gap-4 overflow-hidden rounded-2xl border border-white/80 bg-white/75 p-4 shadow-lg shadow-slate-200/70 transition hover:border-violet-200 hover:bg-white hover:shadow-violet-100/80 lg:grid-cols-[minmax(0,1.6fr)_0.8fr_0.6fr_0.6fr_0.8fr_auto] lg:items-center"
             >
-              <div className="flex items-center gap-2">
-                {statusIcon(repo.status, repo.analysis_status)}
-                <p className="truncate font-semibold text-foreground">{displayName}</p>
-              </div>
-              <p className="mt-1 truncate text-xs text-muted-foreground">{repo.github_url}</p>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/50 dark:text-violet-200">
-                  {repo.files_count} files
-                </span>
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 font-medium text-sky-700 dark:bg-sky-900/50 dark:text-sky-200">
-                  {repo.analysis_status}
-                </span>
-                {repo.branches_count > 0 && (
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-200">
-                    {repo.branches_count} branch{repo.branches_count === 1 ? "" : "es"}
-                  </span>
-                )}
-              </div>
-            </Link>
-
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={jobActive || isDeleting || clearingAll || isRefreshing}
-                onClick={() => void handleRefresh(repo.id)}
-                className="text-indigo-600 opacity-0 transition hover:bg-indigo-50 hover:text-indigo-700 group-hover:opacity-100 dark:text-indigo-400 dark:hover:bg-indigo-950/40"
-                aria-label={`Refresh ${displayName}`}
-                title="Check GitHub for new commits"
-              >
-                {isRefreshing ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="size-4" />
-                )}
-              </Button>
+              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-violet-400 via-fuchsia-400 to-sky-400 opacity-0 transition group-hover:opacity-100" />
               <Link
                 href={`/repositories/${repo.id}`}
-                className="rounded-lg p-2 text-muted-foreground opacity-0 transition hover:bg-white/60 hover:text-foreground group-hover:opacity-100 dark:hover:bg-white/10"
-                aria-label={`Open ${displayName}`}
+                onClick={() => onSelect?.(repo.id)}
+                className="min-w-0 flex-1"
               >
-                <ExternalLink className="size-4" />
+                <div className="flex items-center gap-2">
+                  {statusIcon(repo.status, repo.analysis_status)}
+                  <p className="truncate font-semibold text-slate-950">{displayName}</p>
+                </div>
+                <p className="mt-1 truncate text-xs text-slate-500">{repo.github_url}</p>
               </Link>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={isDeleting || clearingAll || isRefreshing}
-                onClick={() => void handleDelete(repo.id, displayName)}
-                className="text-rose-500 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100 dark:hover:bg-rose-950/40"
-                aria-label={`Delete ${displayName}`}
-              >
-                {isDeleting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Trash2 className="size-4" />
-                )}
-              </Button>
+
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  {repo.analysis_status}
+                </span>
+                <span className="rounded-full bg-violet-50 px-2.5 py-1 font-semibold text-violet-700 ring-1 ring-violet-200">
+                  {repo.files_count} files
+                </span>
+              </div>
+
+              <div className="text-sm text-slate-800">
+                <span className="font-semibold">{repo.branches_count}</span>
+                <span className="ml-1 text-xs text-slate-500">
+                  branch{repo.branches_count === 1 ? "" : "es"}
+                </span>
+              </div>
+
+              <div className="text-sm text-slate-800">
+                <span className="font-semibold">{repo.total_pull_requests}</span>
+                <span className="ml-1 text-xs text-slate-500">PRs</span>
+                <p className="mt-1 text-xs text-emerald-600">
+                  {repo.open_pull_requests} open / {repo.merged_pull_requests} merged
+                </p>
+              </div>
+
+              <div className="text-xs text-slate-400">{formatLastActive(repo.updated_at)}</div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={jobActive || isDeleting || clearingAll || isRefreshing}
+                  onClick={() => void handleRefresh(repo.id)}
+                  className="bg-indigo-50 text-indigo-600 opacity-100 transition hover:bg-indigo-100 hover:text-indigo-700"
+                  aria-label={`Refresh ${displayName}`}
+                  title="Check GitHub for new commits"
+                >
+                  {isRefreshing ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
+                </Button>
+                <Link
+                  href={`/repositories/${repo.id}`}
+                  className="rounded-lg bg-slate-50 p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+                  aria-label={`Open ${displayName}`}
+                >
+                  <ExternalLink className="size-4" />
+                </Link>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={isDeleting || clearingAll || isRefreshing}
+                  onClick={() => void handleDelete(repo.id, displayName)}
+                  className="bg-rose-50 text-rose-500 opacity-100 transition hover:bg-rose-100 hover:text-rose-600"
+                  aria-label={`Delete ${displayName}`}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="size-4" />
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

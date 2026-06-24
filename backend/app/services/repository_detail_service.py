@@ -6,6 +6,7 @@ from app.models.job import JobStatus
 from app.repositories import (
     job_event_repository,
     job_repository,
+    pull_request_repository,
     repository_detail_repository,
     repository_repository,
     repository_stats_repository,
@@ -16,6 +17,7 @@ from app.schemas.repository import (
     BranchSummaryResponse,
     DependencyItem,
     FileItem,
+    PullRequestDetailItem,
     RepositoryDetailResponse,
     RepositoryListItem,
     RepositorySummaryResponse,
@@ -67,6 +69,26 @@ async def _build_branch_summary(db, snapshot) -> BranchSummaryResponse:
     )
 
 
+def _map_pull_request(item) -> PullRequestDetailItem:
+    return PullRequestDetailItem(
+        number=item.number,
+        title=item.title,
+        state=item.state.value.upper(),
+        author=item.author_username,
+        is_merged=item.is_merged,
+        is_draft=item.is_draft,
+        source_branch=item.source_branch,
+        target_branch=item.target_branch,
+        html_url=item.html_url,
+        github_created_at=item.github_created_at,
+        github_updated_at=item.github_updated_at,
+        description=item.description,
+        github_closed_at=item.github_closed_at,
+        github_merged_at=item.github_merged_at,
+        last_synced_at=item.last_synced_at,
+    )
+
+
 async def get_job_status(db: AsyncSession, *, job_id: UUID, user_id: UUID) -> JobStatusResponse:
     job = await job_repository.get_by_id_for_user(db, job_id, user_id)
     if job is None:
@@ -99,6 +121,7 @@ async def _build_summary(
         if snapshot
         else None
     )
+    pr_counts = await pull_request_repository.count_by_state(db, repository.id)
 
     return RepositorySummaryResponse(
         id=repository.id,
@@ -117,6 +140,10 @@ async def _build_summary(
         branches_count=repository.branches_analyzed_count,
         branches_truncated=repository.branches_truncated,
         available_branches=available_branches,
+        total_pull_requests=pr_counts.total,
+        open_pull_requests=pr_counts.open,
+        closed_pull_requests=pr_counts.closed,
+        merged_pull_requests=pr_counts.merged,
     )
 
 
@@ -143,6 +170,10 @@ async def list_user_repositories(
                 files_count=summary.files_count,
                 branches_count=repository.branches_analyzed_count,
                 branches_truncated=repository.branches_truncated,
+                total_pull_requests=summary.total_pull_requests,
+                open_pull_requests=summary.open_pull_requests,
+                closed_pull_requests=summary.closed_pull_requests,
+                merged_pull_requests=summary.merged_pull_requests,
                 updated_at=repository.updated_at.isoformat(),
             )
         )
@@ -179,6 +210,20 @@ async def get_repository_summary(
         raise NotFoundError("Repository not found")
 
     return await _build_summary(db, repository, branch=branch)
+
+
+async def list_repository_pull_requests(
+    db: AsyncSession,
+    *,
+    repository_id: UUID,
+    user_id: UUID,
+) -> list[PullRequestDetailItem]:
+    repository = await repository_repository.get_by_id_for_user(db, repository_id, user_id)
+    if repository is None:
+        raise NotFoundError("Repository not found")
+
+    pull_requests = await pull_request_repository.list_for_repository(db, repository.id)
+    return [_map_pull_request(item) for item in pull_requests]
 
 
 async def get_repository_detail(

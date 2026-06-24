@@ -10,6 +10,7 @@ from app.models import (  # noqa: F401
     File,
     Job,
     JobEvent,
+    PullRequest,
     Repository,
     RepositorySnapshot,
     Symbol,

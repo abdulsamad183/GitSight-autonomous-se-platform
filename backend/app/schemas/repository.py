@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -36,6 +37,10 @@ class RepositoryListItem(BaseModel):
     files_count: int
     branches_count: int = 0
     branches_truncated: bool = False
+    total_pull_requests: int = 0
+    open_pull_requests: int = 0
+    closed_pull_requests: int = 0
+    merged_pull_requests: int = 0
     updated_at: str
 
 
@@ -56,6 +61,10 @@ class RepositorySummaryResponse(BaseModel):
     branches_count: int = 0
     branches_truncated: bool = False
     available_branches: list[str] = []
+    total_pull_requests: int = 0
+    open_pull_requests: int = 0
+    closed_pull_requests: int = 0
+    merged_pull_requests: int = 0
 
 
 class FileItem(BaseModel):
@@ -81,6 +90,27 @@ class DependencyItem(BaseModel):
     source_path: str
     target_path: str
     dependency_type: str
+
+
+class PullRequestListItem(BaseModel):
+    number: int
+    title: str
+    state: str
+    author: str
+    is_merged: bool
+    is_draft: bool = False
+    source_branch: str | None = None
+    target_branch: str | None = None
+    html_url: str | None = None
+    github_created_at: datetime | None = None
+    github_updated_at: datetime | None = None
+
+
+class PullRequestDetailItem(PullRequestListItem):
+    description: str | None = None
+    github_closed_at: datetime | None = None
+    github_merged_at: datetime | None = None
+    last_synced_at: datetime | None = None
 
 
 class RepositoryDetailResponse(RepositorySummaryResponse):

@@ -4,9 +4,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
+from app.core.config import get_settings
+from app.models.pull_request import PullRequestState
+from app.repositories import pull_request_repository
 from app.services.analysis.repository_analyzer import RepositoryAnalyzer
 from app.services.analysis.repository_cloner import CloneResult
+from app.utils.github import GitHubPullRequestDraft
 
 ANALYZE_URL = "/api/v1/repositories/analyze"
 LIST_URL = "/api/v1/repositories"
@@ -24,6 +30,27 @@ def _make_clone_result(job_id: UUID, branches: list[str]) -> CloneResult:
         total_branches_found=len(branches),
         branches_truncated=False,
         analyzed_at=datetime.now(timezone.utc),
+    )
+
+
+def _make_pull_request_draft() -> GitHubPullRequestDraft:
+    now = datetime.now(timezone.utc)
+    return GitHubPullRequestDraft(
+        github_pr_id=1001,
+        number=15,
+        title="Add authentication middleware",
+        description="PR description",
+        state=PullRequestState.OPEN,
+        author_username="octocat",
+        source_branch="feature/auth",
+        target_branch="main",
+        github_created_at=now,
+        github_updated_at=now,
+        github_closed_at=None,
+        github_merged_at=None,
+        is_draft=False,
+        is_merged=False,
+        html_url="https://github.com/octocat/Hello-World/pull/15",
     )
 
 
@@ -86,6 +113,77 @@ async def test_list_repositories(authenticated_client):
     data = response.json()
     assert isinstance(data, list)
     assert len(data) >= 1
+
+
+@pytest.mark.asyncio
+async def test_repository_pull_requests_endpoint_and_summary_counts(client):
+    from uuid import uuid4
+
+    suffix = uuid4().hex[:8]
+    register_payload = {
+        "username": f"prapiuser_{suffix}",
+        "email": f"prapi_{suffix}@example.com",
+        "password": "securepass123",
+    }
+    register_response = await client.post("/api/v1/auth/register", json=register_payload)
+    assert register_response.status_code == 201
+
+    with (
+        patch(
+            "app.services.analysis_service.validate_public_repo",
+            new_callable=AsyncMock,
+        ),
+        patch("app.services.analysis_service.run_analysis_job", new_callable=AsyncMock),
+    ):
+        analyze_response = await client.post(
+            ANALYZE_URL,
+            json={"github_url": "https://github.com/octocat/PR-Repo"},
+        )
+
+    assert analyze_response.status_code == 202
+    repository_id = UUID(analyze_response.json()["repository_id"])
+
+    settings = get_settings()
+    engine = create_async_engine(
+        settings.database_url,
+        poolclass=NullPool,
+        connect_args={"statement_cache_size": 0},
+    )
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as db:
+        await pull_request_repository.upsert_many(
+            db,
+            repository_id=repository_id,
+            pull_requests=[_make_pull_request_draft()],
+            synced_at=datetime.now(timezone.utc),
+        )
+        await db.commit()
+    await engine.dispose()
+
+    pull_requests_response = await client.get(f"/api/v1/repositories/{repository_id}/pull-requests")
+    assert pull_requests_response.status_code == 200
+    pull_requests = pull_requests_response.json()
+    assert len(pull_requests) == 1
+    pull_request = pull_requests[0]
+    assert pull_request["number"] == 15
+    assert pull_request["title"] == "Add authentication middleware"
+    assert pull_request["state"] == "OPEN"
+    assert pull_request["author"] == "octocat"
+    assert pull_request["is_merged"] is False
+    assert pull_request["source_branch"] == "feature/auth"
+    assert pull_request["target_branch"] == "main"
+
+    list_response = await client.get(LIST_URL)
+    assert list_response.status_code == 200
+    repository_item = next(
+        item for item in list_response.json() if item["id"] == str(repository_id)
+    )
+    assert repository_item["total_pull_requests"] == 1
+    assert repository_item["open_pull_requests"] == 1
+    assert repository_item["merged_pull_requests"] == 0
+
+    delete_response = await client.delete(f"/api/v1/repositories/{repository_id}")
+    assert delete_response.status_code == 204
 
 
 @pytest.mark.asyncio
@@ -200,6 +298,10 @@ async def test_list_branches_and_details_by_branch(client):
         ) as mock_cloner_cls,
         patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
         patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+        patch(
+            "app.services.analysis.repository_analyzer.sync_pull_requests",
+            new_callable=AsyncMock,
+        ),
     ):
         analyze_response = await client.post(
             ANALYZE_URL,
@@ -266,6 +368,10 @@ async def test_refresh_repository(client):
         ) as mock_cloner_cls,
         patch("app.services.analysis.repository_analyzer.Repo") as mock_repo_cls,
         patch("app.services.analysis.repository_analyzer.shutil.rmtree"),
+        patch(
+            "app.services.analysis.repository_analyzer.sync_pull_requests",
+            new_callable=AsyncMock,
+        ),
     ):
         analyze_response = await client.post(
             ANALYZE_URL,

@@ -12,6 +12,7 @@ from app.schemas.repository import (
     AnalyzeResponse,
     BranchSummaryResponse,
     DeleteAllResponse,
+    PullRequestDetailItem,
     RepositoryDetailResponse,
     RepositoryListItem,
     RepositorySummaryResponse,
@@ -115,6 +116,22 @@ async def list_repository_branches(
 ) -> list[BranchSummaryResponse]:
     try:
         return await repository_detail_service.list_repository_branches(
+            db,
+            repository_id=repository_id,
+            user_id=current_user.id,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/pull-requests", response_model=list[PullRequestDetailItem])
+async def list_repository_pull_requests(
+    repository_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[PullRequestDetailItem]:
+    try:
+        return await repository_detail_service.list_repository_pull_requests(
             db,
             repository_id=repository_id,
             user_id=current_user.id,

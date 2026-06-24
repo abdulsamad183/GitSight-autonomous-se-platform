@@ -27,6 +27,7 @@ from app.services.analysis.job_tracker import (
     STAGE_DISCOVERING,
     JobTracker,
 )
+from app.services.analysis.pull_request_sync import sync_pull_requests
 from app.services.analysis.repository_cloner import RepositoryCloner
 from app.services.analysis.tree_sitter_parser import TreeSitterParser
 from app.services.exceptions import AnalysisError
@@ -266,6 +267,22 @@ class RepositoryAnalyzer:
                 )
                 await repository_repository.update_status(db, repository, RepositoryStatus.ACTIVE)
                 await db.commit()
+
+                try:
+                    await sync_pull_requests(
+                        db,
+                        repository=repository,
+                        settings=settings,
+                        tracker=tracker,
+                    )
+                except Exception as exc:
+                    await db.rollback()
+                    logger.warning(
+                        "PR sync failed for repository %s: %s",
+                        repository.id,
+                        exc,
+                    )
+                    await tracker.log_warning(f"PR sync failed: {exc}")
 
                 await tracker.set_stage(STAGE_CLEANING)
                 if skip_unchanged and updated_count == 0:

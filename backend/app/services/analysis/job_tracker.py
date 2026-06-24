@@ -5,6 +5,8 @@ from app.repositories import job_event_repository, job_repository
 
 STAGE_CLONING = ("Cloning Repository", 5)
 STAGE_DISCOVERING = ("Discovering Branches", 12)
+STAGE_DISCOVERING_PRS = ("Discovering Pull Requests", 91)
+STAGE_SYNCING_PRS = ("Synchronizing Pull Requests", 93)
 STAGE_CLEANING = ("Cleaning Temporary Files", 95)
 STAGE_COMPLETED = ("Completed", 100)
 
@@ -32,6 +34,12 @@ class JobTracker:
             kwargs["progress"] = progress
         await job_repository.update_progress(self.db, self.job, **kwargs)
         await job_event_repository.append(self.db, job_id=self.job.id, message=message)
+        await self.db.commit()
+
+    async def log_warning(self, message: str) -> None:
+        await job_event_repository.append(
+            self.db, job_id=self.job.id, message=f"Warning: {message}"
+        )
         await self.db.commit()
 
     async def set_branch_stage(
