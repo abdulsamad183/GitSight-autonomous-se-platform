@@ -8,6 +8,7 @@ import { GitGraph, Loader2, RefreshCw } from "lucide-react";
 import { BranchSelector } from "@/components/branch-selector";
 import { JobProgressCard } from "@/components/job-progress-card";
 import { PullRequestsSection } from "@/components/pull-requests-section";
+import { RepositorySearch } from "@/components/repository-search";
 import { RepositoryDetailTabs } from "@/components/repository-detail-tabs";
 import { RepositoryHero, RepositoryStatsGrid } from "@/components/repository-stats";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -242,6 +243,11 @@ export default function RepositoryDetailPage() {
                 />
 
                 <PullRequestsSection pullRequests={pullRequests} />
+
+                <RepositorySearch
+                  repositoryId={params.id}
+                  branch={selectedBranch ?? detail.selected_branch}
+                />
 
                 <div>
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

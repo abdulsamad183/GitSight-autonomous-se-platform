@@ -19,10 +19,12 @@ from app.schemas.repository import (
     RepositoryListItem,
     RepositorySummaryResponse,
 )
+from app.schemas.search import SearchResponse
 from app.services import analysis_service, indexing_service, repository_detail_service
 from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.services.graph import repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
+from app.services.search_service import SearchService
 
 router = APIRouter()
 
@@ -300,6 +302,50 @@ async def reindex_repository(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/search", response_model=SearchResponse)
+async def search_repository(
+    repository_id: UUID,
+    q: str,
+    mode: str = "hybrid",
+    limit: int | None = None,
+    offset: int = 0,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> SearchResponse:
+    if not q or not q.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Query cannot be empty")
+
+    if mode not in {"keyword", "semantic", "hybrid"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mode must be keyword, semantic, or hybrid",
+        )
+
+    try:
+        await repository_detail_service.get_repository_or_raise(
+            db, repository_id=repository_id, user_id=current_user.id
+        )
+        effective_limit = min(
+            limit or settings.search_default_limit,
+            settings.search_max_limit,
+        )
+        search_service = SearchService(db, settings)
+        return await search_service.search(
+            repository_id,
+            q.strip(),
+            mode=mode,
+            limit=effective_limit,
+            offset=offset,
+            branch=branch,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.delete("/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)

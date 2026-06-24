@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     embedding_dimension: int = 384
     embedding_batch_size: int = 32
 
+    search_default_limit: int = 20
+    search_max_limit: int = 100
+    search_keyword_weight: float = 0.4
+    search_semantic_weight: float = 0.6
+    search_similarity_threshold: float = 0.3
+    search_candidate_multiplier: int = 3
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

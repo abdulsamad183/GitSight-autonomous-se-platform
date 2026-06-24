@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 import type { RepositoryGraph } from "@/types/graph";
+import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
 import type {
   AnalyzeRequest,
   AnalyzeResponse,
@@ -60,4 +61,26 @@ export async function deleteRepository(repositoryId: string): Promise<void> {
 
 export async function clearAllRepositories(): Promise<{ deleted_count: number }> {
   return apiDelete<{ deleted_count: number }>("/api/v1/repositories");
+}
+
+export async function searchRepository(
+  repositoryId: string,
+  params: SearchParams,
+): Promise<SearchResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("q", params.q);
+  if (params.mode) searchParams.set("mode", params.mode);
+  if (params.limit !== undefined) searchParams.set("limit", String(params.limit));
+  if (params.offset !== undefined) searchParams.set("offset", String(params.offset));
+  if (params.branch) searchParams.set("branch", params.branch);
+  return apiGet<SearchResponse>(
+    `/api/v1/repositories/${repositoryId}/search?${searchParams.toString()}`,
+  );
+}
+
+export async function getRepositoryChunk(
+  repositoryId: string,
+  chunkId: string,
+): Promise<ChunkDetail> {
+  return apiGet<ChunkDetail>(`/api/v1/repositories/${repositoryId}/chunks/${chunkId}`);
 }
