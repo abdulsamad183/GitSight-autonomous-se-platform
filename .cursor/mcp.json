@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "uvx",
+      "args": [
+        "code-review-graph",
+        "serve"
+      ],
+      "cwd": "/home/hp/Projects/personal/GitSight-autonomous-se-platform",
+      "type": "stdio"
+    }
+  }
+}
