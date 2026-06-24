@@ -60,9 +60,7 @@ def _compute_empty_state(
     if not has_snapshot_data:
         return "Repository has not been analyzed yet."
     if classes_count == 0:
-        return (
-            "No classes found — repository may contain only scripts or unsupported languages."
-        )
+        return "No classes found — repository may contain only scripts or unsupported languages."
     if methods_count == 0:
         return "Classes found but no methods detected."
     return None

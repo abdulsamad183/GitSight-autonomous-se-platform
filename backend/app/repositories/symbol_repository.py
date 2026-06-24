@@ -20,9 +20,7 @@ def _resolve_parent_class_id(
         return candidates[0].id
 
     enclosing = [
-        cls
-        for cls in candidates
-        if cls.start_line <= method_start and cls.end_line >= method_end
+        cls for cls in candidates if cls.start_line <= method_start and cls.end_line >= method_end
     ]
     if not enclosing:
         return candidates[0].id

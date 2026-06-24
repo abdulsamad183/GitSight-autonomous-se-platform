@@ -99,7 +99,9 @@ class TreeSitterParser:
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
-                            parent_class_name=class_stack[-1] if is_method and class_stack else None,
+                            parent_class_name=(
+                                class_stack[-1] if is_method and class_stack else None
+                            ),
                         )
                     )
                 return
@@ -179,7 +181,9 @@ class TreeSitterParser:
                             start_line=node.start_point[0] + 1,
                             end_line=node.end_point[0] + 1,
                             signature=self._node_text(node, source)[:200],
-                            parent_class_name=class_stack[-1] if is_method and class_stack else None,
+                            parent_class_name=(
+                                class_stack[-1] if is_method and class_stack else None
+                            ),
                         )
                     )
                 return

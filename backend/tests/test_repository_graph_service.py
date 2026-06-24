@@ -1,7 +1,5 @@
 from uuid import uuid4
 
-import pytest
-
 from app.models.file import File
 from app.models.repository import Repository, RepositoryStatus
 from app.models.symbol import Symbol, SymbolType
@@ -366,7 +364,9 @@ def test_large_repository():
 def test_classes_without_methods_empty_state():
     repository = _make_repository()
     snapshot_id = uuid4()
-    file = _make_file(repository_id=repository.id, snapshot_id=snapshot_id, relative_path="model.py")
+    file = _make_file(
+        repository_id=repository.id, snapshot_id=snapshot_id, relative_path="model.py"
+    )
     model_class = _make_symbol(
         repository_id=repository.id,
         snapshot_id=snapshot_id,
