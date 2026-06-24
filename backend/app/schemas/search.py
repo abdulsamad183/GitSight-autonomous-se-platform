@@ -32,3 +32,7 @@ class RetrievalContextItem(BaseModel):
     file_path: str
     chunk_type: str
     content: str
+    branch_name: str | None = None
+    base_commit_hash: str | None = None
+    head_commit_hash: str | None = None
+    change_type: str | None = None

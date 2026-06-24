@@ -7,10 +7,18 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings, get_settings
 from app.models.code_chunk import ChunkType, CodeChunk
 from app.models.symbol import Symbol, SymbolType
-from app.repositories import code_chunk_repository, snapshot_repository, symbol_repository
+from app.repositories import (
+    code_chunk_repository,
+    file_repository,
+    snapshot_repository,
+    symbol_repository,
+)
 from app.schemas.chunk import ChunkCreate
+from app.utils.file_chunker import chunk_css_file, chunk_text_file
+from app.utils.file_filter import FILE_CHUNK_EXTENSIONS
 from app.utils.source_extractor import compute_content_hash, extract_lines
 
 logger = logging.getLogger(__name__)
@@ -36,8 +44,9 @@ def _symbol_type_to_chunk_type(symbol_type: SymbolType) -> ChunkType:
 
 
 class ChunkService:
-    def __init__(self, db: AsyncSession) -> None:
+    def __init__(self, db: AsyncSession, settings: Settings | None = None) -> None:
         self.db = db
+        self.settings = settings or get_settings()
 
     def create_chunk(
         self,
@@ -47,6 +56,7 @@ class ChunkService:
         source: bytes,
         branch_name: str,
         repository_id: UUID,
+        head_commit_hash: str,
         parent_symbol: str | None = None,
     ) -> ChunkCreate | None:
         if symbol.symbol_type not in CHUNKABLE_SYMBOL_TYPES:
@@ -67,7 +77,52 @@ class ChunkService:
             end_line=symbol.end_line,
             content=content,
             content_hash=compute_content_hash(content),
+            chunk_source="symbol",
+            head_commit_hash=head_commit_hash,
         )
+
+    def _file_chunks_for_path(
+        self,
+        *,
+        file_path: str,
+        extension: str | None,
+        content: str,
+        repository_id: UUID,
+        branch_name: str,
+        head_commit_hash: str,
+    ) -> list[ChunkCreate]:
+        if extension == ".css":
+            drafts = chunk_css_file(
+                file_path=file_path,
+                content=content,
+                max_section_lines=self.settings.file_chunk_max_lines,
+                whole_file_max_lines=self.settings.file_chunk_whole_file_max_lines,
+            )
+        else:
+            drafts = chunk_text_file(
+                file_path=file_path,
+                content=content,
+                max_section_lines=self.settings.file_chunk_max_lines,
+                whole_file_max_lines=self.settings.file_chunk_whole_file_max_lines,
+            )
+
+        return [
+            ChunkCreate(
+                repository_id=repository_id,
+                branch_name=branch_name,
+                file_path=file_path,
+                chunk_type=draft.chunk_type,
+                symbol_name=draft.symbol_name,
+                parent_symbol=None,
+                start_line=draft.start_line,
+                end_line=draft.end_line,
+                content=draft.content,
+                content_hash=draft.content_hash,
+                chunk_source=draft.chunk_source,
+                head_commit_hash=head_commit_hash,
+            )
+            for draft in drafts
+        ]
 
     async def create_chunks(
         self,
@@ -75,6 +130,7 @@ class ChunkService:
         repository_id: UUID,
         branch_name: str,
         clone_path: Path,
+        head_commit_hash: str,
     ) -> tuple[ChunkGenerationStats, list[CodeChunk]]:
         start = time.perf_counter()
 
@@ -109,10 +165,37 @@ class ChunkService:
                     source=source,
                     branch_name=branch_name,
                     repository_id=repository_id,
+                    head_commit_hash=head_commit_hash,
                     parent_symbol=parent_name,
                 )
                 if draft is not None:
                     chunk_creates.append(draft)
+
+        file_records = await file_repository.list_for_snapshot(self.db, snapshot_id=snapshot.id)
+        for file_record in file_records:
+            if file_record.is_binary:
+                continue
+            extension = (file_record.extension or "").lower()
+            if extension not in FILE_CHUNK_EXTENSIONS:
+                continue
+
+            absolute_path = clone_path / file_record.relative_path
+            try:
+                text = absolute_path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                logger.warning("Failed to read %s for file chunking", file_record.relative_path)
+                continue
+
+            chunk_creates.extend(
+                self._file_chunks_for_path(
+                    file_path=file_record.relative_path,
+                    extension=extension,
+                    content=text,
+                    repository_id=repository_id,
+                    branch_name=branch_name,
+                    head_commit_hash=head_commit_hash,
+                )
+            )
 
         _, needing_embedding = await code_chunk_repository.bulk_upsert(
             self.db, chunks=chunk_creates

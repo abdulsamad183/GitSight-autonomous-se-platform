@@ -15,6 +15,22 @@ class ChunkType(str, enum.Enum):
     INTERFACE = "interface"
     ENUM = "enum"
     MODULE = "module"
+    FILE = "file"
+    SECTION = "section"
+    DIFF_HUNK = "diff_hunk"
+
+
+class ChunkSource(str, enum.Enum):
+    SYMBOL = "symbol"
+    FILE = "file"
+    SECTION = "section"
+    DIFF_HUNK = "diff_hunk"
+
+
+class ChangeType(str, enum.Enum):
+    ADD = "add"
+    MODIFY = "modify"
+    DELETE = "delete"
 
 
 class CodeChunk(BaseModel):
@@ -50,6 +66,17 @@ class CodeChunk(BaseModel):
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    chunk_source: Mapped[ChunkSource] = mapped_column(
+        Enum(ChunkSource, name="chunk_source", values_callable=enum_values),
+        nullable=False,
+        default=ChunkSource.SYMBOL,
+    )
+    base_commit_hash: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    head_commit_hash: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    change_type: Mapped[ChangeType | None] = mapped_column(
+        Enum(ChangeType, name="change_type", values_callable=enum_values),
+        nullable=True,
+    )
 
     repository = relationship("Repository", back_populates="code_chunks")
     embedding = relationship(

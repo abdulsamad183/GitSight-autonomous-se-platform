@@ -98,11 +98,14 @@ async def run_indexing_job(job_id: UUID) -> None:
             if not branches:
                 raise IndexingError("No branches found in repository")
 
-            indexing_service = RepositoryIndexingService(db)
+            indexing_service = RepositoryIndexingService(db, settings)
             await indexing_service.index_repository(
                 repository_id=repository.id,
                 clone_path=clone_result.clone_path,
+                git_repo=git_repo,
+                default_branch=clone_result.default_branch,
                 branches=branches,
+                updated_branches=None,
                 tracker=tracker,
             )
             await tracker.mark_completed()

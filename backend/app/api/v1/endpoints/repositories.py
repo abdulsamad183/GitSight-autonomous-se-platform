@@ -42,6 +42,10 @@ def _chunk_to_response(chunk) -> ChunkResponse:
         end_line=chunk.end_line,
         content=chunk.content,
         content_hash=chunk.content_hash,
+        chunk_source=chunk.chunk_source.value,
+        base_commit_hash=chunk.base_commit_hash,
+        head_commit_hash=chunk.head_commit_hash,
+        change_type=chunk.change_type.value if chunk.change_type else None,
         created_at=chunk.created_at,
         updated_at=chunk.updated_at,
     )

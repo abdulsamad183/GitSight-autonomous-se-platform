@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.repositories import search_repository
+from app.repositories import code_chunk_repository, search_repository
 from app.repositories.search_repository import SearchRow
 from app.schemas.search import RetrievalContextItem, SearchResponse, SearchResult
 from app.services.indexing.embedding_service import EmbeddingService
@@ -290,19 +290,23 @@ class SearchService:
             return []
 
         chunk_ids = [r.chunk_id for r in results]
-        content_map = await search_repository.get_chunks_content_by_ids(
-            self.db, chunk_ids=chunk_ids
-        )
+        chunks = await code_chunk_repository.get_by_ids(self.db, chunk_ids=chunk_ids)
+        chunk_map = {chunk.id: chunk for chunk in chunks}
 
         items: list[RetrievalContextItem] = []
         for result in results:
-            content = content_map.get(result.chunk_id, "")
+            chunk = chunk_map.get(result.chunk_id)
+            content = chunk.content if chunk is not None else ""
             items.append(
                 RetrievalContextItem(
                     symbol_name=result.symbol_name.replace("<mark>", "").replace("</mark>", ""),
                     file_path=result.file_path,
                     chunk_type=result.chunk_type,
                     content=content,
+                    branch_name=result.branch_name,
+                    base_commit_hash=chunk.base_commit_hash if chunk else None,
+                    head_commit_hash=chunk.head_commit_hash if chunk else None,
+                    change_type=chunk.change_type.value if chunk and chunk.change_type else None,
                 )
             )
         return items

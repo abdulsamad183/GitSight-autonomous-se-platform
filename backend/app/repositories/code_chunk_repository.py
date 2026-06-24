@@ -14,6 +14,13 @@ async def get_by_id(db: AsyncSession, chunk_id: UUID) -> CodeChunk | None:
     return result.scalar_one_or_none()
 
 
+async def get_by_ids(db: AsyncSession, *, chunk_ids: list[UUID]) -> list[CodeChunk]:
+    if not chunk_ids:
+        return []
+    result = await db.execute(select(CodeChunk).where(CodeChunk.id.in_(chunk_ids)))
+    return list(result.scalars().all())
+
+
 async def get_by_id_for_repository(
     db: AsyncSession,
     *,
@@ -136,6 +143,10 @@ async def bulk_upsert(
             "end_line": item.end_line,
             "content": item.content,
             "content_hash": item.content_hash,
+            "chunk_source": item.chunk_source,
+            "base_commit_hash": item.base_commit_hash,
+            "head_commit_hash": item.head_commit_hash,
+            "change_type": item.change_type,
         }
         for item in chunks
     ]
@@ -148,6 +159,10 @@ async def bulk_upsert(
             "end_line": stmt.excluded.end_line,
             "content": stmt.excluded.content,
             "content_hash": stmt.excluded.content_hash,
+            "chunk_source": stmt.excluded.chunk_source,
+            "base_commit_hash": stmt.excluded.base_commit_hash,
+            "head_commit_hash": stmt.excluded.head_commit_hash,
+            "change_type": stmt.excluded.change_type,
             "updated_at": func.now(),
         },
     ).returning(CodeChunk)

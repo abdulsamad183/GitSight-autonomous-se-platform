@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.file import File
@@ -29,3 +30,12 @@ async def bulk_create(
     db.add_all(records)
     await db.flush()
     return records
+
+
+async def list_for_snapshot(db: AsyncSession, *, snapshot_id: UUID) -> list[File]:
+    result = await db.execute(
+        select(File)
+        .where(File.snapshot_id == snapshot_id)
+        .order_by(File.relative_path)
+    )
+    return list(result.scalars().all())

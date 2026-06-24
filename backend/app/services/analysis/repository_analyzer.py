@@ -272,14 +272,18 @@ class RepositoryAnalyzer:
                 await repository_repository.update_status(db, repository, RepositoryStatus.ACTIVE)
                 await db.commit()
 
-                branches_to_index = updated_branches if skip_unchanged else branches
-                if branches_to_index:
+                branches_to_index = updated_branches if skip_unchanged else None
+                should_index = branches_to_index is None or bool(branches_to_index)
+                if should_index:
                     try:
-                        indexing_service = RepositoryIndexingService(db)
+                        indexing_service = RepositoryIndexingService(db, settings)
                         await indexing_service.index_repository(
                             repository_id=repository.id,
                             clone_path=clone_result.clone_path,
-                            branches=branches_to_index,
+                            git_repo=git_repo,
+                            default_branch=clone_result.default_branch,
+                            branches=branches,
+                            updated_branches=branches_to_index,
                             tracker=tracker,
                         )
                     except Exception as exc:

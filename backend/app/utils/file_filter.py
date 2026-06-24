@@ -20,9 +20,14 @@ LANGUAGE_BY_EXTENSION: dict[str, str] = {
     ".mjs": "javascript",
     ".ts": "typescript",
     ".tsx": "typescript",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
 }
 
 PARSEABLE_LANGUAGES = {"python", "javascript", "typescript"}
+
+FILE_CHUNK_EXTENSIONS = {".html", ".htm", ".css"}
 
 
 def detect_language(extension: str | None) -> str | None:

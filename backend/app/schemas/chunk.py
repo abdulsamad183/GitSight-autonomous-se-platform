@@ -17,6 +17,10 @@ class ChunkCreate:
     end_line: int
     content: str
     content_hash: str
+    chunk_source: str = "symbol"
+    base_commit_hash: str | None = None
+    head_commit_hash: str | None = None
+    change_type: str | None = None
 
 
 class ChunkResponse(BaseModel):
@@ -31,6 +35,10 @@ class ChunkResponse(BaseModel):
     end_line: int
     content: str
     content_hash: str
+    chunk_source: str
+    base_commit_hash: str | None
+    head_commit_hash: str | None
+    change_type: str | None
     created_at: datetime
     updated_at: datetime
 

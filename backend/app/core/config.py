@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     search_similarity_threshold: float = 0.3
     search_candidate_multiplier: int = 3
 
+    file_chunk_max_lines: int = 120
+    file_chunk_whole_file_max_lines: int = 200
+    max_diff_bytes: int = 500_000
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

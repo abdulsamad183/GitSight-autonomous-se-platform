@@ -21,6 +21,7 @@ def test_create_chunk_extracts_source():
         source=source,
         branch_name="main",
         repository_id=uuid4(),
+        head_commit_hash="abc123",
     )
 
     assert draft is not None
@@ -44,6 +45,7 @@ def test_create_chunk_creates_class_chunk():
         source=b"class Foo:\n    pass\n",
         branch_name="main",
         repository_id=uuid4(),
+        head_commit_hash="abc123",
     )
     assert draft is not None
     assert draft.chunk_type == "class"
