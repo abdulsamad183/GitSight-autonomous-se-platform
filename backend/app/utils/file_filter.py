@@ -32,11 +32,16 @@ LANGUAGE_BY_EXTENSION: dict[str, str] = {
     ".hpp": "cpp",
     ".hh": "cpp",
     ".hxx": "cpp",
+    ".md": "markdown",
+    ".mdx": "markdown",
+    ".rst": "restructuredtext",
 }
 
 PARSEABLE_LANGUAGES = {"python", "javascript", "typescript", "go", "c", "cpp"}
 
 FILE_CHUNK_EXTENSIONS = {".html", ".htm", ".css"}
+DOCUMENT_CHUNK_EXTENSIONS = {".md", ".mdx", ".rst"}
+CHUNKABLE_FILE_EXTENSIONS = FILE_CHUNK_EXTENSIONS | DOCUMENT_CHUNK_EXTENSIONS
 
 
 def detect_language(extension: str | None) -> str | None:

@@ -25,7 +25,10 @@ def test_detect_language():
     assert detect_language(".c") == "c"
     assert detect_language(".cpp") == "cpp"
     assert detect_language(".hpp") == "cpp"
-    assert detect_language(".md") is None
+    assert detect_language(".md") == "markdown"
+    assert detect_language(".mdx") == "markdown"
+    assert detect_language(".rst") == "restructuredtext"
+    assert detect_language(".xyz") is None
 
 
 def test_is_binary_content():

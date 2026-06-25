@@ -17,8 +17,8 @@ from app.repositories import (
     symbol_repository,
 )
 from app.schemas.chunk import ChunkCreate
-from app.utils.file_chunker import chunk_css_file, chunk_text_file
-from app.utils.file_filter import FILE_CHUNK_EXTENSIONS
+from app.utils.file_chunker import chunk_css_file, chunk_markdown_file, chunk_text_file
+from app.utils.file_filter import CHUNKABLE_FILE_EXTENSIONS, DOCUMENT_CHUNK_EXTENSIONS
 from app.utils.source_extractor import compute_content_hash, extract_lines
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,14 @@ class ChunkService:
         branch_name: str,
         head_commit_hash: str,
     ) -> list[ChunkCreate]:
-        if extension == ".css":
+        if extension in DOCUMENT_CHUNK_EXTENSIONS:
+            drafts = chunk_markdown_file(
+                file_path=file_path,
+                content=content,
+                max_section_lines=self.settings.file_chunk_max_lines,
+                whole_file_max_lines=self.settings.file_chunk_whole_file_max_lines,
+            )
+        elif extension == ".css":
             drafts = chunk_css_file(
                 file_path=file_path,
                 content=content,
@@ -131,12 +138,21 @@ class ChunkService:
         branch_name: str,
         clone_path: Path,
         head_commit_hash: str,
+        only_new_files: bool = False,
     ) -> tuple[ChunkGenerationStats, list[CodeChunk]]:
         start = time.perf_counter()
 
         snapshot = await snapshot_repository.get_for_branch(self.db, repository_id, branch_name)
         if snapshot is None:
             return ChunkGenerationStats(0, {}, 0.0), []
+
+        existing_files: set[str] = set()
+        if only_new_files:
+            existing_files = await code_chunk_repository.list_chunked_file_paths(
+                self.db,
+                repository_id=repository_id,
+                branch_name=branch_name,
+            )
 
         symbol_rows = await symbol_repository.list_for_snapshot_with_files(
             self.db, snapshot_id=snapshot.id
@@ -145,6 +161,8 @@ class ChunkService:
         chunks_by_file: dict[str, list[tuple[Symbol, str | None]]] = {}
         for symbol, file in symbol_rows:
             if symbol.symbol_type not in CHUNKABLE_SYMBOL_TYPES:
+                continue
+            if only_new_files and file.relative_path in existing_files:
                 continue
             parent_name = symbol.parent.symbol_name if symbol.parent else None
             chunks_by_file.setdefault(file.relative_path, []).append((symbol, parent_name))
@@ -175,8 +193,10 @@ class ChunkService:
         for file_record in file_records:
             if file_record.is_binary:
                 continue
+            if only_new_files and file_record.relative_path in existing_files:
+                continue
             extension = (file_record.extension or "").lower()
-            if extension not in FILE_CHUNK_EXTENSIONS:
+            if extension not in CHUNKABLE_FILE_EXTENSIONS:
                 continue
 
             absolute_path = clone_path / file_record.relative_path
@@ -209,11 +229,13 @@ class ChunkService:
             chunk_generation_time_seconds=elapsed,
         )
         logger.info(
-            "Created %d chunks for repository %s branch %s (distribution: %s) in %.2fs",
+            "Created %d chunks for repository %s branch %s "
+            "(distribution: %s, only_new_files=%s) in %.2fs",
             stats.total_chunks,
             repository_id,
             branch_name,
             stats.chunk_type_distribution,
+            only_new_files,
             stats.chunk_generation_time_seconds,
         )
         return stats, needing_embedding

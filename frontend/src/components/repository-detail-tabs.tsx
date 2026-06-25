@@ -16,8 +16,9 @@ const LANGUAGE_COLORS: Record<string, string> = {
   python: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200",
   javascript: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
   typescript: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  markdown: "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-200",
+  restructuredtext: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200",
 };
-
 const SYMBOL_COLORS: Record<string, string> = {
   class: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200",
   function: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",

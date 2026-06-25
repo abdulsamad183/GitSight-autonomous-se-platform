@@ -101,6 +101,8 @@ class RepositoryIndexingService:
             )
             default_commit = default_snapshot.commit_hash if default_snapshot else None
 
+            incremental = updated_branches is not None
+
             for branch in full_branches:
                 if tracker is not None:
                     await tracker.set_stage(STAGE_INDEXING_CHUNKS)
@@ -111,17 +113,19 @@ class RepositoryIndexingService:
                     continue
 
                 self.cloner.checkout_branch(git_repo, branch)
-                await code_chunk_repository.delete_for_branch(
-                    self.db,
-                    repository_id=repository_id,
-                    branch_name=branch,
-                )
+                if not incremental:
+                    await code_chunk_repository.delete_for_branch(
+                        self.db,
+                        repository_id=repository_id,
+                        branch_name=branch,
+                    )
 
                 _, needing_embedding = await self.chunk_service.create_chunks(
                     repository_id=repository_id,
                     branch_name=branch,
                     clone_path=clone_path,
                     head_commit_hash=snapshot.commit_hash,
+                    only_new_files=incremental,
                 )
                 all_needing_embedding.extend(needing_embedding)
                 await self.db.commit()
@@ -143,11 +147,14 @@ class RepositoryIndexingService:
                     logger.warning("Missing snapshot for diff indexing on branch %s", branch)
                     continue
 
-                await code_chunk_repository.delete_for_branch(
-                    self.db,
-                    repository_id=repository_id,
-                    branch_name=branch,
-                )
+                self.cloner.checkout_branch(git_repo, branch)
+
+                if not incremental:
+                    await code_chunk_repository.delete_for_branch(
+                        self.db,
+                        repository_id=repository_id,
+                        branch_name=branch,
+                    )
 
                 diff_chunks = build_diff_chunks(
                     git_repo,
@@ -162,6 +169,17 @@ class RepositoryIndexingService:
                         self.db, chunks=diff_chunks
                     )
                     all_needing_embedding.extend(needing_embedding)
+
+                if incremental:
+                    _, new_file_embeddings = await self.chunk_service.create_chunks(
+                        repository_id=repository_id,
+                        branch_name=branch,
+                        clone_path=clone_path,
+                        head_commit_hash=branch_snapshot.commit_hash,
+                        only_new_files=True,
+                    )
+                    all_needing_embedding.extend(new_file_embeddings)
+
                 await self.db.commit()
 
             if tracker is not None:

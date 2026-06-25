@@ -1,10 +1,13 @@
-"""Line-window and file-based chunking for HTML, CSS, and other text files."""
+"""Line-window and file-based chunking for HTML, CSS, markdown, and other text files."""
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from app.utils.source_extractor import compute_content_hash
+
+MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$")
 
 
 @dataclass(frozen=True)
@@ -133,6 +136,128 @@ def chunk_css_file(
             )
 
     if drafts:
+        return drafts
+
+    return chunk_text_file(
+        file_path=file_path,
+        content=content,
+        max_section_lines=max_section_lines,
+        whole_file_max_lines=whole_file_max_lines,
+    )
+
+
+def _markdown_heading_title(line: str) -> str | None:
+    match = MARKDOWN_HEADING_RE.match(line.rstrip("\r\n"))
+    if not match:
+        return None
+    return match.group(2).strip()
+
+
+def _split_markdown_sections(
+    *,
+    file_path: str,
+    lines: list[str],
+) -> list[FileChunkDraft]:
+    """Split markdown on ATX headings (# .. ######)."""
+    has_heading = any(_markdown_heading_title(line) is not None for line in lines)
+    if not has_heading:
+        return []
+
+    drafts: list[FileChunkDraft] = []
+    current_heading: str | None = None
+    current_lines: list[str] = []
+    start_line = 1
+
+    def flush(end_line: int) -> None:
+        nonlocal current_lines
+        if not current_lines:
+            return
+        body = "".join(current_lines)
+        if not body.strip():
+            current_lines = []
+            return
+        symbol_name = f"{file_path}#{current_heading}" if current_heading else file_path
+        drafts.append(
+            FileChunkDraft(
+                chunk_type="section" if current_heading else "file",
+                chunk_source="section" if current_heading else "file",
+                symbol_name=symbol_name,
+                start_line=start_line,
+                end_line=end_line,
+                content=body,
+                content_hash=compute_content_hash(body),
+            )
+        )
+        current_lines = []
+
+    for line_number, line in enumerate(lines, start=1):
+        heading = _markdown_heading_title(line)
+        if heading is not None:
+            flush(line_number - 1)
+            current_heading = heading
+            start_line = line_number
+            current_lines = [line]
+        else:
+            if not current_lines:
+                start_line = line_number
+            current_lines.append(line)
+
+    flush(len(lines))
+    return drafts
+
+
+def _subdivide_large_draft(
+    draft: FileChunkDraft,
+    *,
+    max_section_lines: int,
+) -> list[FileChunkDraft]:
+    line_count = _line_count(draft.content)
+    if line_count <= max_section_lines:
+        return [draft]
+
+    lines = draft.content.splitlines(keepends=True)
+    subdivided: list[FileChunkDraft] = []
+    offset = draft.start_line
+    start = 1
+    while start <= line_count:
+        end = min(start + max_section_lines - 1, line_count)
+        section = "".join(lines[start - 1 : end])
+        subdivided.append(
+            FileChunkDraft(
+                chunk_type="section",
+                chunk_source="section",
+                symbol_name=f"{draft.symbol_name}:L{offset + start - 1}-{offset + end - 1}",
+                start_line=offset + start - 1,
+                end_line=offset + end - 1,
+                content=section,
+                content_hash=compute_content_hash(section),
+            )
+        )
+        start = end + 1
+    return subdivided
+
+
+def chunk_markdown_file(
+    *,
+    file_path: str,
+    content: str,
+    max_section_lines: int = 120,
+    whole_file_max_lines: int = 200,
+) -> list[FileChunkDraft]:
+    """Chunk markdown/reStructuredText by headings, with line-window fallback."""
+    lines = content.splitlines(keepends=True)
+    total_lines = len(lines)
+    if total_lines == 0:
+        return []
+
+    heading_sections = _split_markdown_sections(file_path=file_path, lines=lines)
+    if heading_sections:
+        drafts: list[FileChunkDraft] = []
+        for section in heading_sections:
+            if _line_count(section.content) > max_section_lines:
+                drafts.extend(_subdivide_large_draft(section, max_section_lines=max_section_lines))
+            else:
+                drafts.append(section)
         return drafts
 
     return chunk_text_file(

@@ -115,6 +115,23 @@ async def get_existing_hashes_for_branch(
     return mapping
 
 
+async def list_chunked_file_paths(
+    db: AsyncSession,
+    *,
+    repository_id: UUID,
+    branch_name: str,
+) -> set[str]:
+    result = await db.execute(
+        select(CodeChunk.file_path)
+        .where(
+            CodeChunk.repository_id == repository_id,
+            CodeChunk.branch_name == branch_name,
+        )
+        .distinct()
+    )
+    return {row[0] for row in result.all()}
+
+
 async def bulk_upsert(
     db: AsyncSession,
     *,
