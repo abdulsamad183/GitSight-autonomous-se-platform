@@ -1,5 +1,5 @@
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from app.models.symbol import SymbolType
@@ -85,7 +85,8 @@ def test_create_chunks_only_new_files_skips_existing_paths():
                 return_value={"main.py", "README.md"},
             ),
             patch(
-                "app.services.indexing.chunk_service.symbol_repository.list_for_snapshot_with_files",
+                "app.services.indexing.chunk_service.symbol_repository"
+                ".list_for_snapshot_with_files",
                 return_value=[],
             ),
             patch(
