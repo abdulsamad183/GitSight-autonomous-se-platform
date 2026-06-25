@@ -15,12 +15,15 @@ class ChatSourceResponse(BaseModel):
     symbol_name: str
     chunk_type: str
     branch_name: str | None = None
+    source_tool: str | None = None
 
 
 class ChatTimingResponse(BaseModel):
-    retrieval_ms: float
-    prompt_build_ms: float
-    llm_ms: float
+    planning_ms: float = 0.0
+    tool_execution_ms: float = 0.0
+    retrieval_ms: float = 0.0
+    prompt_build_ms: float = 0.0
+    llm_ms: float = 0.0
     total_ms: float
 
 
@@ -36,3 +39,4 @@ class ChatResponse(BaseModel):
     execution_time_ms: float
     timing: ChatTimingResponse
     token_usage: TokenUsageResponse | None = None
+    tools_used: list[str] = Field(default_factory=list)

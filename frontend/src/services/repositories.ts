@@ -99,6 +99,8 @@ interface StreamChatOptions {
   message: string;
   branch?: string;
   onToken: (token: string) => void;
+  onToolStart?: (tool: string, label: string) => void;
+  onToolEnd?: (tool: string, success: boolean) => void;
   onDone: (sources: ChatSource[]) => void;
   onError: (message: string) => void;
 }
@@ -152,6 +154,10 @@ export async function streamChatRepository(
       const payload = JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
       if (payload.type === "token") {
         options.onToken(payload.content);
+      } else if (payload.type === "tool_start") {
+        options.onToolStart?.(payload.tool, payload.label);
+      } else if (payload.type === "tool_end") {
+        options.onToolEnd?.(payload.tool, payload.success);
       } else if (payload.type === "done") {
         options.onDone(payload.sources ?? []);
       } else if (payload.type === "error") {

@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import AsyncIterator
 
@@ -49,6 +50,31 @@ class GroqProvider:
                 total_tokens=response.usage.total_tokens or 0,
             )
         return LLMCompletion(content=content or "", token_usage=token_usage)
+
+    async def generate_structured(self, messages: list[ChatMessage]) -> dict:
+        client = self._get_client()
+        try:
+            response = await client.chat.completions.create(
+                model=self.settings.effective_planner_model,
+                messages=self._to_api_messages(messages),
+                temperature=self.settings.llm_planner_temperature,
+                max_tokens=self.settings.llm_planner_max_tokens,
+                response_format={"type": "json_object"},
+                stream=False,
+            )
+        except Exception as exc:
+            logger.exception("Groq structured planning failed")
+            raise LLMProviderError(f"Groq structured planning failed: {exc}") from exc
+
+        choice = response.choices[0] if response.choices else None
+        content = choice.message.content if choice and choice.message else "{}"
+        try:
+            parsed = json.loads(content or "{}")
+        except json.JSONDecodeError as exc:
+            raise LLMProviderError(f"Planner returned invalid JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise LLMProviderError("Planner JSON root must be an object")
+        return parsed
 
     async def stream(self, messages: list[ChatMessage]) -> AsyncIterator[str]:
         client = self._get_client()

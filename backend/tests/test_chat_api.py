@@ -51,11 +51,14 @@ async def test_chat_success_json(authenticated_client):
         ],
         execution_time_ms=95.5,
         timing=ChatTimingResponse(
+            planning_ms=5,
+            tool_execution_ms=10,
             retrieval_ms=10,
             prompt_build_ms=1,
             llm_ms=80,
             total_ms=95.5,
         ),
+        tools_used=["search"],
     )
 
     with patch(
@@ -80,18 +83,23 @@ async def test_chat_stream_sse(authenticated_client):
     repo_id = uuid4()
 
     async def fake_stream(**kwargs):
+        yield {"type": "tool_start", "tool": "search", "label": "Searching code…"}
+        yield {"type": "tool_end", "tool": "search", "success": True}
         yield {"type": "token", "content": "Hello"}
         yield {
             "type": "done",
             "sources": [],
             "execution_time_ms": 50.0,
             "timing": {
+                "planning_ms": 2,
+                "tool_execution_ms": 5,
                 "retrieval_ms": 1,
                 "prompt_build_ms": 1,
                 "llm_ms": 40,
                 "total_ms": 50,
             },
             "token_usage": None,
+            "tools_used": ["search"],
         }
 
     with patch(
@@ -110,5 +118,13 @@ async def test_chat_stream_sse(authenticated_client):
     body = response.text
     assert "data:" in body
     assert "token" in body
+    assert "tool_start" in body
     assert "done" in body
-    assert json.loads(body.split("data: ")[1].split("\n\n")[0])["type"] == "token"
+    events = [
+        json.loads(part.split("data: ", 1)[1])
+        for part in body.split("\n\n")
+        if part.strip().startswith("data:")
+    ]
+    assert any(event["type"] == "tool_start" for event in events)
+    assert any(event["type"] == "token" for event in events)
+    assert any(event["type"] == "done" for event in events)

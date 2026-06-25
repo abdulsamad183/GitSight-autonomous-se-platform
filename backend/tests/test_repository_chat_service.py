@@ -20,10 +20,19 @@ async def test_repository_chat_service_answer():
                     file_path="auth.py",
                     symbol_name="validate",
                     chunk_type="function",
+                    source_tool="search",
                 )
             ],
-            ChatTiming(10, 1, 100, 120),
+            ChatTiming(
+                planning_ms=1,
+                tool_execution_ms=2,
+                retrieval_ms=3,
+                prompt_build_ms=1,
+                llm_ms=10,
+                total_ms=17,
+            ),
             TokenUsage(1, 2, 3),
+            ["search"],
         )
     )
 
@@ -40,6 +49,7 @@ async def test_repository_chat_service_answer():
 
     assert "JWT" in response.answer
     assert len(response.sources) == 1
+    assert response.tools_used == ["search"]
 
 
 @pytest.mark.asyncio

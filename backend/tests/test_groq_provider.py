@@ -37,6 +37,25 @@ async def test_groq_provider_missing_api_key():
 
 
 @pytest.mark.asyncio
+async def test_groq_provider_generate_structured():
+    settings = Settings(groq_api_key="test-key", llm_model="groq/compound-mini")
+    provider = GroqProvider(settings)
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock(message=MagicMock(content='{"reasoning":"ok","steps":[]}'))]
+
+    with patch("app.services.ai.providers.groq_provider.AsyncGroq") as mock_cls:
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_cls.return_value = mock_client
+
+        payload = await provider.generate_structured([ChatMessage(role="user", content="plan")])
+
+    assert payload["reasoning"] == "ok"
+    assert payload["steps"] == []
+
+
+@pytest.mark.asyncio
 async def test_groq_provider_health_false_without_key():
     provider = GroqProvider(Settings(groq_api_key=None))
     assert await provider.health() is False

@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     rag_top_k: int = 5
     rag_max_context_chars: int = 48_000
 
+    llm_planner_model: str | None = None
+    llm_planner_temperature: float = 0.0
+    llm_planner_max_tokens: int = 1024
+    tool_max_steps: int = 4
+    graph_traversal_max_depth: int = 5
+
+    @property
+    def effective_planner_model(self) -> str:
+        return self.llm_planner_model or self.llm_model
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

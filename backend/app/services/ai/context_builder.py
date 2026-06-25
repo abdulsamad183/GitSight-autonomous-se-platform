@@ -1,101 +1,72 @@
 from uuid import UUID
 
 from app.core.config import Settings
-from app.schemas.search import RetrievalContextItem
+from app.services.ai.tools.types import ToolResult
 from app.services.ai.types import BuiltContext, ChatSource
-from app.services.search_service import SearchService
 
-
-def _format_chunk_block(item: RetrievalContextItem) -> str:
-    clean_symbol = item.symbol_name.replace("<mark>", "").replace("</mark>", "")
-    lines = [
-        f"File: {item.file_path}",
-        f"Symbol: {clean_symbol}",
-        f"Type: {item.chunk_type}",
-    ]
-    if item.branch_name:
-        lines.append(f"Branch: {item.branch_name}")
-    if item.change_type:
-        lines.append(f"Change: {item.change_type}")
-    lines.append("Code:")
-    lines.append(item.content)
-    return "\n".join(lines)
-
-
-def _group_by_file(items: list[RetrievalContextItem]) -> dict[str, list[RetrievalContextItem]]:
-    grouped: dict[str, list[RetrievalContextItem]] = {}
-    file_order: list[str] = []
-    for item in items:
-        if item.file_path not in grouped:
-            grouped[item.file_path] = []
-            file_order.append(item.file_path)
-        grouped[item.file_path].append(item)
-    return {path: grouped[path] for path in file_order}
+SECTION_ORDER = {
+    "repository": 0,
+    "branch": 1,
+    "graph": 2,
+    "search": 3,
+}
 
 
 class ContextBuilder:
-    def __init__(self, search_service: SearchService, settings: Settings) -> None:
-        self.search_service = search_service
+    def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    async def build(
-        self,
-        *,
-        repository_id: UUID,
-        user_query: str,
-        branch: str | None = None,
-    ) -> BuiltContext:
-        items = await self.search_service.retrieve_context(
-            repository_id,
-            user_query,
-            top_k=self.settings.rag_top_k,
-            branch=branch,
-        )
-        if not items:
+    def build_from_tool_results(self, tool_results: list[ToolResult]) -> BuiltContext:
+        if not tool_results:
             return BuiltContext(
-                text="Repository Context\n\n(No relevant code chunks found.)",
+                text="Repository Context\n\n(No tool outputs available.)",
                 sources=[],
                 chunks_used=0,
+                tools_used=[],
             )
 
-        included: list[RetrievalContextItem] = []
-        for item in items:
-            trial = included + [item]
-            text = self._render_context(trial)
+        ordered = sorted(
+            [result for result in tool_results if result.text.strip()],
+            key=lambda result: SECTION_ORDER.get(result.tool_name, 99),
+        )
+
+        included: list[ToolResult] = []
+        for result in ordered:
+            trial = included + [result]
+            text = self._render_sections(trial)
             if len(text) <= self.settings.rag_max_context_chars:
-                included.append(item)
+                included.append(result)
             else:
                 break
 
-        if not included and items:
-            included = [items[0]]
+        if not included and ordered:
+            included = [ordered[0]]
 
-        sources = [
-            ChatSource(
-                chunk_id=item.chunk_id,
-                file_path=item.file_path,
-                symbol_name=item.symbol_name.replace("<mark>", "").replace("</mark>", ""),
-                chunk_type=item.chunk_type,
-                branch_name=item.branch_name,
-            )
-            for item in included
-        ]
+        sources: list[ChatSource] = []
+        seen_chunk_ids: set[UUID] = set()
+        chunks_used = 0
+        tools_used: list[str] = []
+        for result in included:
+            tools_used.append(result.tool_name)
+            for source in result.sources:
+                if source.chunk_id in seen_chunk_ids:
+                    continue
+                seen_chunk_ids.add(source.chunk_id)
+                sources.append(source)
+                chunks_used += 1
+
         return BuiltContext(
-            text=self._render_context(included),
+            text=self._render_sections(included),
             sources=sources,
-            chunks_used=len(included),
+            chunks_used=chunks_used,
+            tools_used=tools_used,
         )
 
-    def _render_context(self, items: list[RetrievalContextItem]) -> str:
-        if not items:
-            return "Repository Context\n\n(No relevant code chunks found.)"
-
-        grouped = _group_by_file(items)
-        sections: list[str] = ["Repository Context", ""]
-        for file_path, file_items in grouped.items():
-            sections.append(f"## File: {file_path}")
+    def _render_sections(self, results: list[ToolResult]) -> str:
+        if not results:
+            return "Repository Context\n\n(No tool outputs available.)"
+        sections = ["Repository Context", ""]
+        for result in results:
+            sections.append(result.text.strip())
             sections.append("")
-            for item in file_items:
-                sections.append(_format_chunk_block(item))
-                sections.append("")
         return "\n".join(sections).strip()

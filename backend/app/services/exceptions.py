@@ -32,3 +32,7 @@ class IndexingError(AppError):
 
 class LLMProviderError(AppError):
     """LLM provider configuration or request failed."""
+
+
+class ToolPlannerError(AppError):
+    """Tool planning failed."""

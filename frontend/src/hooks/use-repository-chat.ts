@@ -6,9 +6,9 @@ import { chatRepository, streamChatRepository } from "@/services/repositories";
 import type { ChatMessage, ChatSource } from "@/types/chat";
 
 export const STARTER_QUESTIONS = [
-  "Explain project architecture.",
+  "How many branches are in this repository?",
   "How does authentication work?",
-  "Explain repository structure.",
+  "Which branch contains OAuth login?",
   "Where is JWT implemented?",
 ];
 
@@ -22,11 +22,12 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, toolStatus]);
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -35,6 +36,7 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
 
       setInput("");
       setError(null);
+      setToolStatus(null);
       setLoading(true);
       setMessages((prev) => [...prev, { role: "user", content: message }]);
 
@@ -62,12 +64,20 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
         await streamChatRepository(repositoryId, {
           message,
           branch: branch ?? undefined,
+          onToolStart: (_tool, label) => {
+            setToolStatus(label);
+          },
+          onToolEnd: () => {
+            setToolStatus(null);
+          },
           onToken: (token) => {
+            setToolStatus(null);
             assistantContent += token;
             appendAssistant(assistantContent, sources);
           },
           onDone: (doneSources) => {
             sources = doneSources;
+            setToolStatus(null);
             appendAssistant(assistantContent, doneSources);
           },
           onError: (messageText) => {
@@ -107,10 +117,16 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
                 ? streamError.message
                 : "Chat failed";
           setError(messageText);
-          setMessages((prev) => prev.filter((item, index) => !(index === prev.length - 1 && item.role === "assistant" && !item.content)));
+          setMessages((prev) =>
+            prev.filter(
+              (item, index) =>
+                !(index === prev.length - 1 && item.role === "assistant" && !item.content),
+            ),
+          );
         }
       } finally {
         setLoading(false);
+        setToolStatus(null);
       }
     },
     [branch, input, loading, repositoryId],
@@ -120,6 +136,7 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
     setMessages([]);
     setError(null);
     setInput("");
+    setToolStatus(null);
   }, []);
 
   return {
@@ -128,6 +145,7 @@ export function useRepositoryChat({ repositoryId, branch }: UseRepositoryChatOpt
     setInput,
     loading,
     error,
+    toolStatus,
     sendMessage,
     clear,
     scrollRef,

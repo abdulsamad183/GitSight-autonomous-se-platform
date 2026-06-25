@@ -29,6 +29,7 @@ class ChatSource:
     symbol_name: str
     chunk_type: str
     branch_name: str | None = None
+    source_tool: str | None = None
 
 
 @dataclass
@@ -36,22 +37,29 @@ class BuiltContext:
     text: str
     sources: list[ChatSource] = field(default_factory=list)
     chunks_used: int = 0
+    tools_used: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class ChatTiming:
-    retrieval_ms: float
-    prompt_build_ms: float
-    llm_ms: float
-    total_ms: float
+    planning_ms: float = 0.0
+    tool_execution_ms: float = 0.0
+    retrieval_ms: float = 0.0
+    prompt_build_ms: float = 0.0
+    llm_ms: float = 0.0
+    total_ms: float = 0.0
 
 
 @dataclass(frozen=True)
 class ChatStreamEvent:
-    type: Literal["token", "done", "error"]
+    type: Literal["token", "done", "error", "tool_start", "tool_end"]
     content: str | None = None
     sources: list[ChatSource] | None = None
     execution_time_ms: float | None = None
     timing: ChatTiming | None = None
     token_usage: TokenUsage | None = None
     message: str | None = None
+    tool: str | None = None
+    label: str | None = None
+    success: bool | None = None
+    tools_used: list[str] | None = None

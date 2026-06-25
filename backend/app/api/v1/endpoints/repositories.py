@@ -29,11 +29,15 @@ from app.services.ai.engine import AIEngine
 from app.services.ai.prompt_builder import PromptBuilder
 from app.services.ai.providers.factory import get_llm_provider
 from app.services.ai.repository_chat_service import RepositoryChatService
+from app.services.ai.tools.executor import ToolExecutor
+from app.services.ai.tools.factory import build_default_tool_registry
+from app.services.ai.tools.planner import LLMToolPlanner
 from app.services.exceptions import (
     ConflictError,
     ForbiddenError,
     LLMProviderError,
     NotFoundError,
+    ToolPlannerError,
     ValidationError,
 )
 from app.services.graph import repository_graph_service
@@ -44,11 +48,21 @@ router = APIRouter()
 
 
 def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatService:
-    search_service = SearchService(db, settings)
-    context_builder = ContextBuilder(search_service, settings)
+    registry = build_default_tool_registry(db, settings)
     prompt_builder = PromptBuilder()
     llm_provider = get_llm_provider(settings)
-    engine = AIEngine(context_builder, prompt_builder, llm_provider, settings)
+    planner = LLMToolPlanner(registry, prompt_builder, llm_provider, settings)
+    executor = ToolExecutor(registry, settings)
+    context_builder = ContextBuilder(settings)
+    engine = AIEngine(
+        db,
+        planner,
+        executor,
+        context_builder,
+        prompt_builder,
+        llm_provider,
+        settings,
+    )
     return RepositoryChatService(db, engine, settings)
 
 
@@ -409,6 +423,10 @@ async def chat_repository(
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+    except ToolPlannerError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc

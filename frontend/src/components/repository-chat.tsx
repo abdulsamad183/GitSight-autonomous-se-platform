@@ -23,6 +23,7 @@ export function RepositoryChat({ repositoryId, branch }: RepositoryChatProps) {
     setInput,
     loading,
     error,
+    toolStatus,
     sendMessage,
     scrollRef,
     starterQuestions,
@@ -71,7 +72,7 @@ export function RepositoryChat({ repositoryId, branch }: RepositoryChatProps) {
         {loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin text-violet-500" />
-            Thinking...
+            {toolStatus ?? "Thinking..."}
           </div>
         )}
 

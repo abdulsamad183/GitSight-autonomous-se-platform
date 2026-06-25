@@ -22,11 +22,14 @@ def _source_to_response(source: ChatSource) -> ChatSourceResponse:
         symbol_name=source.symbol_name,
         chunk_type=source.chunk_type,
         branch_name=source.branch_name,
+        source_tool=source.source_tool,
     )
 
 
 def _timing_to_response(timing: ChatTiming) -> ChatTimingResponse:
     return ChatTimingResponse(
+        planning_ms=timing.planning_ms,
+        tool_execution_ms=timing.tool_execution_ms,
         retrieval_ms=timing.retrieval_ms,
         prompt_build_ms=timing.prompt_build_ms,
         llm_ms=timing.llm_ms,
@@ -80,8 +83,9 @@ class RepositoryChatService:
         await self._validate_repository(repository_id, user_id)
         question = self._validate_message(message)
 
-        answer, sources, timing, token_usage = await self.engine.answer_question(
+        answer, sources, timing, token_usage, tools_used = await self.engine.answer_question(
             repository_id,
+            user_id,
             question,
             branch=branch,
         )
@@ -91,6 +95,7 @@ class RepositoryChatService:
             execution_time_ms=timing.total_ms,
             timing=_timing_to_response(timing),
             token_usage=_token_usage_to_response(token_usage),
+            tools_used=tools_used,
         )
 
     async def stream_answer(
@@ -107,6 +112,7 @@ class RepositoryChatService:
 
         async for event in self.engine.stream_answer(
             repository_id,
+            user_id,
             question,
             branch=branch,
         ):
@@ -116,6 +122,18 @@ class RepositoryChatService:
     def _stream_event_to_dict(event: ChatStreamEvent) -> dict:
         if event.type == "token":
             return {"type": "token", "content": event.content or ""}
+        if event.type == "tool_start":
+            return {
+                "type": "tool_start",
+                "tool": event.tool,
+                "label": event.label,
+            }
+        if event.type == "tool_end":
+            return {
+                "type": "tool_end",
+                "tool": event.tool,
+                "success": event.success,
+            }
         if event.type == "error":
             return {"type": "error", "message": event.message or "Unknown error"}
         return {
@@ -127,6 +145,7 @@ class RepositoryChatService:
                     "symbol_name": source.symbol_name,
                     "chunk_type": source.chunk_type,
                     "branch_name": source.branch_name,
+                    "source_tool": source.source_tool,
                 }
                 for source in (event.sources or [])
             ],
@@ -137,4 +156,5 @@ class RepositoryChatService:
                 if event.token_usage
                 else None
             ),
+            "tools_used": event.tools_used or [],
         }

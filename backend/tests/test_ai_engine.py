@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -7,25 +8,14 @@ from app.core.config import Settings
 from app.services.ai.context_builder import ContextBuilder
 from app.services.ai.engine import AIEngine
 from app.services.ai.prompt_builder import PromptBuilder
+from app.services.ai.tools.executor import ToolExecutor
+from app.services.ai.tools.planner import LLMToolPlanner
+from app.services.ai.tools.registry import ToolRegistry
+from app.services.ai.tools.types import ToolResult
 from app.services.ai.types import ChatMessage, LLMCompletion, TokenUsage
 
 
-class FakeSearchService:
-    async def retrieve_context(self, repository_id, query, top_k=5, branch=None):
-        from app.schemas.search import RetrievalContextItem
-
-        return [
-            RetrievalContextItem(
-                chunk_id=uuid4(),
-                symbol_name="hello",
-                file_path="main.py",
-                chunk_type="function",
-                content="def hello(): pass",
-            )
-        ]
-
-
-class FakeLLMProvider:
+class FakeLLM:
     async def generate(self, messages: list[ChatMessage]) -> LLMCompletion:
         return LLMCompletion(
             content="Auth uses JWT.",
@@ -36,42 +26,111 @@ class FakeLLMProvider:
         for token in ["Auth ", "uses ", "JWT."]:
             yield token
 
+    async def generate_structured(self, messages):
+        return {
+            "reasoning": "search auth",
+            "steps": [
+                {
+                    "tool": "search",
+                    "arguments": {"action": "retrieve_context", "query": "auth"},
+                }
+            ],
+        }
+
     async def health(self) -> bool:
         return True
 
 
+class FakeSearchTool:
+    @property
+    def name(self) -> str:
+        return "search"
+
+    @property
+    def description(self) -> str:
+        return "search"
+
+    @property
+    def parameters(self) -> dict:
+        return {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string"},
+                "query": {"type": "string"},
+            },
+            "required": ["action", "query"],
+        }
+
+    async def execute(self, ctx, arguments):
+        from app.services.ai.types import ChatSource
+
+        return ToolResult(
+            tool_name="search",
+            success=True,
+            text="# Retrieved Code\n\ndef auth(): pass",
+            sources=[
+                ChatSource(
+                    chunk_id=uuid4(),
+                    file_path="auth.py",
+                    symbol_name="auth",
+                    chunk_type="function",
+                    source_tool="search",
+                )
+            ],
+        )
+
+
 @pytest.mark.asyncio
 async def test_ai_engine_answer_question():
+    registry = ToolRegistry()
+    registry.register(FakeSearchTool())
     settings = Settings()
+    planner = LLMToolPlanner(registry, PromptBuilder(), FakeLLM(), settings)
+    executor = ToolExecutor(registry, settings)
     engine = AIEngine(
-        ContextBuilder(FakeSearchService(), settings),  # type: ignore[arg-type]
+        AsyncMock(),
+        planner,
+        executor,
+        ContextBuilder(settings),
         PromptBuilder(),
-        FakeLLMProvider(),
+        FakeLLM(),
         settings,
     )
 
-    answer, sources, timing, token_usage = await engine.answer_question(uuid4(), "auth flow")
+    answer, sources, timing, token_usage, tools_used = await engine.answer_question(
+        uuid4(), uuid4(), "auth flow"
+    )
     assert answer == "Auth uses JWT."
     assert len(sources) == 1
-    assert timing.total_ms >= 0
+    assert timing.planning_ms >= 0
+    assert timing.tool_execution_ms >= 0
     assert token_usage is not None
-    assert token_usage.total_tokens == 15
+    assert tools_used == ["search"]
 
 
 @pytest.mark.asyncio
 async def test_ai_engine_stream_answer():
+    registry = ToolRegistry()
+    registry.register(FakeSearchTool())
     settings = Settings()
+    planner = LLMToolPlanner(registry, PromptBuilder(), FakeLLM(), settings)
+    executor = ToolExecutor(registry, settings)
     engine = AIEngine(
-        ContextBuilder(FakeSearchService(), settings),  # type: ignore[arg-type]
+        AsyncMock(),
+        planner,
+        executor,
+        ContextBuilder(settings),
         PromptBuilder(),
-        FakeLLMProvider(),
+        FakeLLM(),
         settings,
     )
 
-    events = [event async for event in engine.stream_answer(uuid4(), "auth flow")]
+    events = [event async for event in engine.stream_answer(uuid4(), uuid4(), "auth flow")]
+    types = [event.type for event in events]
+    assert "tool_start" in types
+    assert "tool_end" in types
     token_events = [event for event in events if event.type == "token"]
     done_events = [event for event in events if event.type == "done"]
-
     assert "".join(event.content or "" for event in token_events) == "Auth uses JWT."
     assert len(done_events) == 1
-    assert done_events[0].sources is not None
+    assert done_events[0].tools_used == ["search"]
