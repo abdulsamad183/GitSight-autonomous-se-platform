@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { GitGraph, Loader2, RefreshCw } from "lucide-react";
+import { GitGraph, Loader2, MessageSquare, RefreshCw } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { JobProgressCard } from "@/components/job-progress-card";
@@ -259,6 +259,15 @@ export default function RepositoryDetailPage() {
                         </span>
                       ) : null}
                     </h2>
+                    <Link
+                      href={`/repositories/${params.id}/chat${
+                        selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
+                      }`}
+                      className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-background px-5 py-2.5 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-900 dark:text-violet-200 dark:hover:bg-violet-950/30"
+                    >
+                      <MessageSquare className="size-4" />
+                      AI Chat
+                    </Link>
                     <Link
                       href={`/repositories/${params.id}/graph${
                         selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""

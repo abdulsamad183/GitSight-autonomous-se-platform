@@ -299,6 +299,7 @@ class SearchService:
             content = chunk.content if chunk is not None else ""
             items.append(
                 RetrievalContextItem(
+                    chunk_id=result.chunk_id,
                     symbol_name=result.symbol_name.replace("<mark>", "").replace("</mark>", ""),
                     file_path=result.file_path,
                     chunk_type=result.chunk_type,

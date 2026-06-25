@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     file_chunk_whole_file_max_lines: int = 200
     max_diff_bytes: int = 500_000
 
+    llm_provider: str = "groq"
+    llm_model: str = "groq/compound-mini"
+    llm_temperature: float = 0.2
+    llm_max_tokens: int = 8192
+    rag_top_k: int = 5
+    rag_max_context_chars: int = 48_000
+
     @property
     def is_development(self) -> bool:
         return self.env == "development"

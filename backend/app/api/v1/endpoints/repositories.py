@@ -1,12 +1,15 @@
+import json
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.models.user import User
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunk import ChunkListResponse, ChunkResponse, IndexStatusResponse, ReindexResponse
 from app.schemas.graph import RepositoryGraphResponse
 from app.schemas.repository import (
@@ -21,12 +24,32 @@ from app.schemas.repository import (
 )
 from app.schemas.search import SearchResponse
 from app.services import analysis_service, indexing_service, repository_detail_service
-from app.services.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.services.ai.context_builder import ContextBuilder
+from app.services.ai.engine import AIEngine
+from app.services.ai.prompt_builder import PromptBuilder
+from app.services.ai.providers.factory import get_llm_provider
+from app.services.ai.repository_chat_service import RepositoryChatService
+from app.services.exceptions import (
+    ConflictError,
+    ForbiddenError,
+    LLMProviderError,
+    NotFoundError,
+    ValidationError,
+)
 from app.services.graph import repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
 from app.services.search_service import SearchService
 
 router = APIRouter()
+
+
+def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatService:
+    search_service = SearchService(db, settings)
+    context_builder = ContextBuilder(search_service, settings)
+    prompt_builder = PromptBuilder()
+    llm_provider = get_llm_provider(settings)
+    engine = AIEngine(context_builder, prompt_builder, llm_provider, settings)
+    return RepositoryChatService(db, engine, settings)
 
 
 def _chunk_to_response(chunk) -> ChunkResponse:
@@ -350,6 +373,45 @@ async def search_repository(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/{repository_id}/chat", response_model=ChatResponse)
+async def chat_repository(
+    repository_id: UUID,
+    body: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    chat_service = _build_chat_service(db, settings)
+    try:
+        if body.stream:
+
+            async def event_generator():
+                async for payload in chat_service.stream_answer(
+                    repository_id=repository_id,
+                    user_id=current_user.id,
+                    message=body.message,
+                    branch=body.branch,
+                ):
+                    yield f"data: {json.dumps(payload)}\n\n"
+
+            return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+        return await chat_service.answer(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            message=body.message,
+            branch=body.branch,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
 
 @router.delete("/{repository_id}", status_code=status.HTTP_204_NO_CONTENT)

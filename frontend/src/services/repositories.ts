@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 import type { RepositoryGraph } from "@/types/graph";
+import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
 import type {
   AnalyzeRequest,
@@ -83,4 +84,79 @@ export async function getRepositoryChunk(
   chunkId: string,
 ): Promise<ChunkDetail> {
   return apiGet<ChunkDetail>(`/api/v1/repositories/${repositoryId}/chunks/${chunkId}`);
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+export async function chatRepository(
+  repositoryId: string,
+  body: ChatRequest,
+): Promise<ChatResponse> {
+  return apiPost<ChatResponse>(`/api/v1/repositories/${repositoryId}/chat`, body);
+}
+
+interface StreamChatOptions {
+  message: string;
+  branch?: string;
+  onToken: (token: string) => void;
+  onDone: (sources: ChatSource[]) => void;
+  onError: (message: string) => void;
+}
+
+export async function streamChatRepository(
+  repositoryId: string,
+  options: StreamChatOptions,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repositoryId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    credentials: "include",
+    body: JSON.stringify({
+      message: options.message,
+      branch: options.branch,
+      stream: true,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const data = await response.json();
+      if (typeof data.detail === "string") message = data.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Streaming not supported");
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const line = part.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
+      if (payload.type === "token") {
+        options.onToken(payload.content);
+      } else if (payload.type === "done") {
+        options.onDone(payload.sources ?? []);
+      } else if (payload.type === "error") {
+        options.onError(payload.message);
+      }
+    }
+  }
 }

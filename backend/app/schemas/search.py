@@ -28,6 +28,7 @@ class SearchResponse(BaseModel):
 
 
 class RetrievalContextItem(BaseModel):
+    chunk_id: UUID
     symbol_name: str
     file_path: str
     chunk_type: str

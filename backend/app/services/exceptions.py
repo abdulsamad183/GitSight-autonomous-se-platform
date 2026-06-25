@@ -28,3 +28,7 @@ class AnalysisError(AppError):
 
 class IndexingError(AppError):
     """Repository indexing failed."""
+
+
+class LLMProviderError(AppError):
+    """LLM provider configuration or request failed."""
