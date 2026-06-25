@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { GitGraph, Loader2, MessageSquare, RefreshCw } from "lucide-react";
 
@@ -15,31 +15,39 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useJobPolling } from "@/hooks/use-job-polling";
 import {
-  getRepositoryDetails,
-  listBranches,
-  listPullRequests,
-  refreshRepository,
-} from "@/services/repositories";
-import type {
-  AnalyzeResponse,
-  BranchSummary,
-  PullRequestListItem,
-  RepositoryDetail,
-} from "@/types/repository";
+  useRepositoryBranches,
+  useRepositoryDetails,
+  useRepositoryPullRequests,
+} from "@/hooks/use-repository-data";
+import { getQueryClient } from "@/lib/query-client";
+import { refreshRepository } from "@/services/repositories";
+import type { AnalyzeResponse } from "@/types/repository";
 
 export default function RepositoryDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [branches, setBranches] = useState<BranchSummary[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RepositoryDetail | null>(null);
-  const [pullRequests, setPullRequests] = useState<PullRequestListItem[]>([]);
+  const repositoryId = params.id;
+
+  const branchFromUrl = searchParams.get("branch");
+  const [branchOverride, setBranchOverride] = useState<string | null>(null);
+
+  const branchesQuery = useRepositoryBranches(repositoryId);
+  const branches = branchesQuery.data ?? [];
+
+  const selectedBranch =
+    branchOverride ?? branchFromUrl ?? branches[0]?.branch ?? null;
+
+  const detailsQuery = useRepositoryDetails(repositoryId, selectedBranch);
   const [refreshJob, setRefreshJob] = useState<AnalyzeResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const pullRequestsQuery = useRepositoryPullRequests(repositoryId);
+
+  const detail = detailsQuery.data;
+  const pullRequests = pullRequestsQuery.data ?? [];
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -47,31 +55,12 @@ export default function RepositoryDetailPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  const loadDetail = useCallback(
-    async (branch?: string) => {
-      if (!params.id) return;
-      setLoading(true);
-      try {
-        const [data, pullRequestList] = await Promise.all([
-          getRepositoryDetails(params.id, branch),
-          listPullRequests(params.id),
-        ]);
-        setDetail(data);
-        setPullRequests(pullRequestList);
-        setSelectedBranch(data.selected_branch ?? branch ?? null);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load repository");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [params.id],
-  );
-
-  const reloadCurrentBranch = useCallback(() => {
-    void loadDetail(selectedBranch ?? undefined);
-  }, [loadDetail, selectedBranch]);
+  const invalidateRepositoryData = useCallback(() => {
+    if (!repositoryId) return;
+    void getQueryClient().invalidateQueries({
+      queryKey: ["repository", repositoryId],
+    });
+  }, [repositoryId]);
 
   const shouldPollRefresh = refreshJob?.job_id && !refreshJob.cached;
   const {
@@ -79,38 +68,19 @@ export default function RepositoryDetailPage() {
     error: pollError,
     isPolling,
   } = useJobPolling(shouldPollRefresh ? refreshJob.job_id : null, {
-    onTerminal: reloadCurrentBranch,
+    onTerminal: invalidateRepositoryData,
   });
 
-  useEffect(() => {
-    if (!params.id || authLoading || !isAuthenticated) return;
-
-    const load = async () => {
-      try {
-        const branchList = await listBranches(params.id);
-        setBranches(branchList);
-        const defaultBranch = branchList[0]?.branch;
-        await loadDetail(defaultBranch);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load repository");
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, [params.id, authLoading, isAuthenticated, loadDetail]);
-
   const handleBranchSelect = (branch: string) => {
-    setSelectedBranch(branch);
-    void loadDetail(branch);
+    setBranchOverride(branch);
   };
 
   const handleRefresh = async () => {
-    if (!params.id) return;
+    if (!repositoryId) return;
     setRefreshing(true);
     setRefreshError(null);
     try {
-      const result = await refreshRepository(params.id);
+      const result = await refreshRepository(repositoryId);
       setRefreshJob(result);
     } catch (e) {
       setRefreshError(e instanceof Error ? e.message : "Failed to refresh repository");
@@ -118,6 +88,17 @@ export default function RepositoryDetailPage() {
       setRefreshing(false);
     }
   };
+
+  const initialLoading =
+    (branchesQuery.isLoading && branches.length === 0) ||
+    (detailsQuery.isLoading && !detail);
+  const branchLoading = detailsQuery.isFetching && Boolean(detail);
+  const loadError =
+    branchesQuery.error instanceof Error
+      ? branchesQuery.error.message
+      : detailsQuery.error instanceof Error
+        ? detailsQuery.error.message
+        : null;
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -156,15 +137,15 @@ export default function RepositoryDetailPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 px-6 py-10">
-        {loading && !detail && (
+        {initialLoading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="size-8 animate-spin text-violet-500" />
           </div>
         )}
 
-        {error && (
+        {loadError && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-            {error}
+            {loadError}
           </div>
         )}
 
@@ -212,7 +193,7 @@ export default function RepositoryDetailPage() {
             {!refreshJob?.cached && polledRefreshJob && (
               <JobProgressCard
                 job={polledRefreshJob}
-                repositoryId={refreshJob?.repository_id ?? params.id}
+                repositoryId={refreshJob?.repository_id ?? repositoryId}
                 pollError={pollError}
                 compact
                 isRefresh
@@ -225,67 +206,66 @@ export default function RepositoryDetailPage() {
               </div>
             )}
 
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="size-6 animate-spin text-violet-500" />
+            {branchLoading && (
+              <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin text-violet-500" />
+                Updating branch data...
               </div>
-            ) : (
-              <>
-                <RepositoryStatsGrid
-                  files_count={detail.files_count}
-                  classes_count={detail.classes_count}
-                  functions_count={detail.functions_count}
-                  methods_count={detail.methods_count}
-                  dependencies_count={detail.dependencies_count}
-                  total_pull_requests={detail.total_pull_requests}
-                  open_pull_requests={detail.open_pull_requests}
-                  merged_pull_requests={detail.merged_pull_requests}
-                />
-
-                <PullRequestsSection pullRequests={pullRequests} />
-
-                <RepositorySearch
-                  repositoryId={params.id}
-                  branch={selectedBranch ?? detail.selected_branch}
-                />
-
-                <div>
-                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-xl font-semibold">
-                      Explore Analysis
-                      {selectedBranch ? (
-                        <span className="ml-2 text-base font-normal text-muted-foreground">
-                          — {selectedBranch}
-                        </span>
-                      ) : null}
-                    </h2>
-                    <Link
-                      href={`/repositories/${params.id}/chat${
-                        selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
-                      }`}
-                      className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-background px-5 py-2.5 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-900 dark:text-violet-200 dark:hover:bg-violet-950/30"
-                    >
-                      <MessageSquare className="size-4" />
-                      AI Chat
-                    </Link>
-                    <Link
-                      href={`/repositories/${params.id}/graph${
-                        selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
-                      }`}
-                      className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-200/60 transition hover:brightness-110"
-                    >
-                      <GitGraph className="size-4" />
-                      View Structure Graph
-                    </Link>
-                  </div>
-                  <RepositoryDetailTabs
-                    files={detail.files}
-                    symbols={detail.symbols}
-                    dependencies={detail.dependencies}
-                  />
-                </div>
-              </>
             )}
+
+            <RepositoryStatsGrid
+              files_count={detail.files_count}
+              classes_count={detail.classes_count}
+              functions_count={detail.functions_count}
+              methods_count={detail.methods_count}
+              dependencies_count={detail.dependencies_count}
+              total_pull_requests={detail.total_pull_requests}
+              open_pull_requests={detail.open_pull_requests}
+              merged_pull_requests={detail.merged_pull_requests}
+            />
+
+            <PullRequestsSection pullRequests={pullRequests} />
+
+            <RepositorySearch
+              repositoryId={repositoryId}
+              branch={selectedBranch ?? detail.selected_branch}
+            />
+
+            <div>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold">
+                  Explore Analysis
+                  {selectedBranch ? (
+                    <span className="ml-2 text-base font-normal text-muted-foreground">
+                      — {selectedBranch}
+                    </span>
+                  ) : null}
+                </h2>
+                <Link
+                  href={`/repositories/${repositoryId}/chat${
+                    selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
+                  }`}
+                  className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-background px-5 py-2.5 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-900 dark:text-violet-200 dark:hover:bg-violet-950/30"
+                >
+                  <MessageSquare className="size-4" />
+                  AI Chat
+                </Link>
+                <Link
+                  href={`/repositories/${repositoryId}/graph${
+                    selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
+                  }`}
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-200/60 transition hover:brightness-110"
+                >
+                  <GitGraph className="size-4" />
+                  View Structure Graph
+                </Link>
+              </div>
+              <RepositoryDetailTabs
+                files={detail.files}
+                symbols={detail.symbols}
+                dependencies={detail.dependencies}
+              />
+            </div>
           </>
         )}
       </main>

@@ -15,14 +15,17 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
-import { clearAllRepositories, deleteRepository, refreshRepository } from "@/services/repositories";
+import {
+  useClearAllRepositories,
+  useDeleteRepository,
+} from "@/hooks/use-repositories";
+import { refreshRepository } from "@/services/repositories";
 import type { AnalyzeResponse, RepositoryListItem } from "@/types/repository";
 
 interface AnalyzedRepositoriesProps {
   repositories: RepositoryListItem[];
   isLoading: boolean;
   onSelect?: (repositoryId: string) => void;
-  onChanged?: () => void;
   onRefreshStarted?: (result: AnalyzeResponse) => void;
   activeJobRepositoryId?: string | null;
 }
@@ -57,14 +60,16 @@ export function AnalyzedRepositories({
   repositories,
   isLoading,
   onSelect,
-  onChanged,
   onRefreshStarted,
   activeJobRepositoryId,
 }: AnalyzedRepositoriesProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteMutation = useDeleteRepository();
+  const clearAllMutation = useClearAllRepositories();
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
-  const [clearingAll, setClearingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const deletingId = deleteMutation.isPending ? deleteMutation.variables : null;
+  const clearingAll = clearAllMutation.isPending;
 
   const handleRefresh = async (repositoryId: string) => {
     setRefreshingId(repositoryId);
@@ -84,15 +89,11 @@ export function AnalyzedRepositories({
       return;
     }
 
-    setDeletingId(repositoryId);
     setError(null);
     try {
-      await deleteRepository(repositoryId);
-      onChanged?.();
+      await deleteMutation.mutateAsync(repositoryId);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to delete repository");
-    } finally {
-      setDeletingId(null);
     }
   };
 
@@ -106,15 +107,11 @@ export function AnalyzedRepositories({
       return;
     }
 
-    setClearingAll(true);
     setError(null);
     try {
-      await clearAllRepositories();
-      onChanged?.();
+      await clearAllMutation.mutateAsync();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to clear repositories");
-    } finally {
-      setClearingAll(false);
     }
   };
 

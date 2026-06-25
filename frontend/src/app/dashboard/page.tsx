@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Activity, FolderGit2, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/card";
 import { useJobPolling } from "@/hooks/use-job-polling";
 import { useAuth } from "@/hooks/use-auth";
-import { listRepositories } from "@/services/repositories";
-import type { AnalyzeResponse, RepositoryListItem } from "@/types/repository";
+import { useRepositories } from "@/hooks/use-repositories";
+import { queryKeys } from "@/lib/query-keys";
+import { getQueryClient } from "@/lib/query-client";
+import type { AnalyzeResponse } from "@/types/repository";
 
 interface MetricCardProps {
   label: string;
@@ -64,54 +66,21 @@ function MetricCard({ label, value, icon: Icon, tone }: MetricCardProps) {
 export default function DashboardPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [analyzedRepos, setAnalyzedRepos] = useState<RepositoryListItem[]>([]);
-  const [reposLoading, setReposLoading] = useState(true);
+  const { data: analyzedRepos = [], isLoading: reposLoading } = useRepositories();
   const [activeJob, setActiveJob] = useState<{
     result: AnalyzeResponse;
     cached: boolean;
     isRefresh: boolean;
   } | null>(null);
 
-  const loadRepos = useCallback(async () => {
-    try {
-      const data = await listRepositories();
-      setAnalyzedRepos(data);
-    } catch {
-      setAnalyzedRepos([]);
-    } finally {
-      setReposLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const data = await listRepositories();
-        if (!cancelled) {
-          setAnalyzedRepos(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setAnalyzedRepos([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setReposLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  const refreshRepos = useCallback(() => {
+    void getQueryClient().invalidateQueries({ queryKey: queryKeys.repositories });
   }, []);
 
   const shouldPoll = activeJob?.result.job_id && !activeJob.cached;
   const { job, error: pollError, isPolling } = useJobPolling(
     shouldPoll ? activeJob.result.job_id : null,
-    { onTerminal: loadRepos },
+    { onTerminal: refreshRepos },
   );
 
   const stats = useMemo(() => {
@@ -148,6 +117,8 @@ export default function DashboardPage() {
       job ||
       isPolling ||
       (activeJob.result.job_id && !activeJob.cached));
+
+  const showReposLoading = reposLoading && analyzedRepos.length === 0;
 
   return (
     <div className="min-h-screen overflow-hidden bg-gradient-to-br from-violet-50 via-white to-sky-50 text-slate-950">
@@ -226,11 +197,7 @@ export default function DashboardPage() {
               <CardContent>
                 <AnalyzedRepositories
                   repositories={analyzedRepos}
-                  isLoading={reposLoading}
-                  onChanged={() => {
-                    setReposLoading(true);
-                    void loadRepos();
-                  }}
+                  isLoading={showReposLoading}
                   onRefreshStarted={handleRefreshStarted}
                   activeJobRepositoryId={
                     activeJob && !activeJob.cached ? activeJob.result.repository_id : null
@@ -290,7 +257,7 @@ export default function DashboardPage() {
               </Card>
             )}
 
-            {!reposLoading && analyzedRepos.length > 0 && (
+            {!showReposLoading && analyzedRepos.length > 0 && (
               <MetricCard
                 label="Analyzed Repos"
                 value={stats.repoCount}

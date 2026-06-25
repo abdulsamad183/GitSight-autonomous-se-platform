@@ -2,30 +2,33 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { RepositoryStructureGraph } from "@/components/repository-structure-graph";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { getRepositoryGraph, listBranches } from "@/services/repositories";
-import type { RepositoryGraph } from "@/types/graph";
-import type { BranchSummary } from "@/types/repository";
+import { useRepositoryBranches, useRepositoryGraph } from "@/hooks/use-repository-data";
 
 export default function RepositoryGraphPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const repositoryId = params.id;
 
-  const [branches, setBranches] = useState<BranchSummary[]>([]);
-  const [selectedBranch, setSelectedBranch] = useState<string | null>(
-    searchParams.get("branch"),
-  );
-  const [graph, setGraph] = useState<RepositoryGraph | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const branchFromUrl = searchParams.get("branch");
+  const [branchOverride, setBranchOverride] = useState<string | null>(null);
+
+  const branchesQuery = useRepositoryBranches(repositoryId);
+  const branches = branchesQuery.data ?? [];
+
+  const selectedBranch =
+    branchOverride ?? branchFromUrl ?? branches[0]?.branch ?? null;
+
+  const graphQuery = useRepositoryGraph(repositoryId, selectedBranch);
+  const graph = graphQuery.data;
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -33,47 +36,20 @@ export default function RepositoryGraphPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  const loadGraph = useCallback(
-    async (branch?: string) => {
-      if (!params.id) return;
-      setLoading(true);
-      try {
-        const data = await getRepositoryGraph(params.id, branch);
-        setGraph(data);
-        setSelectedBranch(data.branch ?? branch ?? null);
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load graph");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [params.id],
-  );
-
-  useEffect(() => {
-    if (!params.id || authLoading || !isAuthenticated) return;
-
-    const load = async () => {
-      try {
-        const branchList = await listBranches(params.id);
-        setBranches(branchList);
-        const initialBranch =
-          searchParams.get("branch") ?? branchList[0]?.branch ?? undefined;
-        await loadGraph(initialBranch);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load graph");
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, [params.id, authLoading, isAuthenticated, loadGraph, searchParams]);
-
   const handleBranchSelect = (branch: string) => {
-    setSelectedBranch(branch);
-    void loadGraph(branch);
+    setBranchOverride(branch);
   };
+
+  const initialLoading =
+    (branchesQuery.isLoading && branches.length === 0) ||
+    (graphQuery.isLoading && !graph);
+  const branchLoading = graphQuery.isFetching && Boolean(graph);
+  const loadError =
+    branchesQuery.error instanceof Error
+      ? branchesQuery.error.message
+      : graphQuery.error instanceof Error
+        ? graphQuery.error.message
+        : null;
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -91,7 +67,9 @@ export default function RepositoryGraphPage() {
       <header className="z-10 flex shrink-0 items-center justify-between gap-4 border-b border-white/70 bg-white/80 px-4 py-2.5 backdrop-blur-xl sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href={`/repositories/${params.id}`}
+            href={`/repositories/${repositoryId}${
+              selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
+            }`}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             <ArrowLeft className="size-4" />
@@ -135,23 +113,23 @@ export default function RepositoryGraphPage() {
       )}
 
       <main className="relative min-h-0 flex-1">
-        {loading && !graph && (
+        {initialLoading && (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="size-8 animate-spin text-violet-500" />
           </div>
         )}
 
-        {error && (
+        {loadError && (
           <div className="flex h-full items-center justify-center p-6">
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700">
-              {error}
+              {loadError}
             </div>
           </div>
         )}
 
-        {graph && !error && (
+        {graph && !loadError && (
           <div className="absolute inset-0">
-            {loading ? (
+            {branchLoading ? (
               <div className="flex h-full items-center justify-center">
                 <Loader2 className="size-6 animate-spin text-violet-500" />
               </div>
