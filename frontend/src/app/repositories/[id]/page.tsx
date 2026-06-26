@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { GitGraph, Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { JobProgressCard } from "@/components/job-progress-card";
 import { PullRequestsSection } from "@/components/pull-requests-section";
 import { RepositorySearch } from "@/components/repository-search";
 import { RepositoryDetailTabs } from "@/components/repository-detail-tabs";
+import { RepositorySubNav } from "@/components/repository-sub-nav";
 import { RepositoryHero, RepositoryStatsGrid } from "@/components/repository-stats";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -173,6 +174,12 @@ export default function RepositoryDetailPage() {
               branchesTruncated={detail.branches_truncated}
             />
 
+            <RepositorySubNav
+              repositoryId={repositoryId}
+              branch={selectedBranch}
+              activeTab="overview"
+            />
+
             {refreshJob?.cached && (
               <JobProgressCard
                 job={{
@@ -226,13 +233,15 @@ export default function RepositoryDetailPage() {
 
             <PullRequestsSection pullRequests={pullRequests} />
 
-            <RepositorySearch
-              repositoryId={repositoryId}
-              branch={selectedBranch ?? detail.selected_branch}
-            />
+            <div id="search">
+              <RepositorySearch
+                repositoryId={repositoryId}
+                branch={selectedBranch ?? detail.selected_branch}
+              />
+            </div>
 
             <div>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="mb-4">
                 <h2 className="text-xl font-semibold">
                   Explore Analysis
                   {selectedBranch ? (
@@ -241,24 +250,6 @@ export default function RepositoryDetailPage() {
                     </span>
                   ) : null}
                 </h2>
-                <Link
-                  href={`/repositories/${repositoryId}/chat${
-                    selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
-                  }`}
-                  className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-background px-5 py-2.5 text-sm font-medium text-violet-700 transition hover:bg-violet-50 dark:border-violet-900 dark:text-violet-200 dark:hover:bg-violet-950/30"
-                >
-                  <MessageSquare className="size-4" />
-                  AI Chat
-                </Link>
-                <Link
-                  href={`/repositories/${repositoryId}/graph${
-                    selectedBranch ? `?branch=${encodeURIComponent(selectedBranch)}` : ""
-                  }`}
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-indigo-600 to-sky-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-200/60 transition hover:brightness-110"
-                >
-                  <GitGraph className="size-4" />
-                  View Structure Graph
-                </Link>
               </div>
               <RepositoryDetailTabs
                 files={detail.files}

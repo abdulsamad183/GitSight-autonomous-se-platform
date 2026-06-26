@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
 import { RepositoryStructureGraph } from "@/components/repository-structure-graph";
+import { RepositorySubNav } from "@/components/repository-sub-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useRepositoryBranches, useRepositoryGraph } from "@/hooks/use-repository-data";
@@ -111,6 +112,14 @@ export default function RepositoryGraphPage() {
           {graph.empty_state}
         </div>
       )}
+
+      <div className="shrink-0 border-b bg-white/60 px-4 py-2 sm:px-6">
+        <RepositorySubNav
+          repositoryId={repositoryId}
+          branch={selectedBranch}
+          activeTab="graph"
+        />
+      </div>
 
       <main className="relative min-h-0 flex-1">
         {initialLoading && (

@@ -3,6 +3,11 @@ import type { RepositoryGraph } from "@/types/graph";
 import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
 import type {
+  DocumentationListResponse,
+  DocumentationResponse,
+  DocumentType,
+} from "@/types/documentation";
+import type {
   AnalyzeRequest,
   AnalyzeResponse,
   BranchSummary,
@@ -165,4 +170,37 @@ export async function streamChatRepository(
       }
     }
   }
+}
+
+export async function listRepositoryDocumentation(
+  repositoryId: string,
+  branch?: string,
+): Promise<DocumentationListResponse> {
+  const query = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+  return apiGet<DocumentationListResponse>(
+    `/api/v1/repositories/${repositoryId}/documentation${query}`,
+  );
+}
+
+export async function getRepositoryDocumentation(
+  repositoryId: string,
+  documentType: DocumentType,
+  branch?: string,
+): Promise<DocumentationResponse> {
+  const query = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+  return apiGet<DocumentationResponse>(
+    `/api/v1/repositories/${repositoryId}/documentation/${documentType}${query}`,
+  );
+}
+
+export async function regenerateRepositoryDocumentation(
+  repositoryId: string,
+  documentType: DocumentType,
+  branch?: string,
+): Promise<DocumentationResponse> {
+  const query = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+  return apiPost<DocumentationResponse>(
+    `/api/v1/repositories/${repositoryId}/documentation/${documentType}/regenerate${query}`,
+    {},
+  );
 }

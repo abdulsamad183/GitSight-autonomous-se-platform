@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { searchRepository } from "@/services/repositories";
+import { RECENT_SEARCHES_KEY } from "@/lib/clear-client-session";
 import type { SearchMode, SearchResult } from "@/types/search";
 
 const DEBOUNCE_MS = 400;
-const RECENT_SEARCHES_KEY = "gitsight_recent_searches";
 const MAX_RECENT = 5;
 
 function loadRecentSearches(): string[] {

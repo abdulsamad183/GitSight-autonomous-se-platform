@@ -85,3 +85,8 @@ class Repository(BaseModel):
         back_populates="repository",
         cascade="all, delete-orphan",
     )
+    documents = relationship(
+        "RepositoryDocument",
+        back_populates="repository",
+        cascade="all, delete-orphan",
+    )

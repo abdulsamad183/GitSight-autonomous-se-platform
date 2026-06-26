@@ -22,6 +22,7 @@ from app.schemas.repository import (
     RepositoryListItem,
     RepositorySummaryResponse,
 )
+from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
 from app.schemas.search import SearchResponse
 from app.services import analysis_service, indexing_service, repository_detail_service
 from app.services.ai.context_builder import ContextBuilder
@@ -42,19 +43,20 @@ from app.services.exceptions import (
 )
 from app.services.graph import repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
+from app.services.documentation.service import DocumentationService, parse_document_type
 from app.services.search_service import SearchService
 
 router = APIRouter()
 
 
-def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatService:
+def _build_ai_engine(db: AsyncSession, settings: Settings) -> AIEngine:
     registry = build_default_tool_registry(db, settings)
     prompt_builder = PromptBuilder()
     llm_provider = get_llm_provider(settings)
     planner = LLMToolPlanner(registry, prompt_builder, llm_provider, settings)
     executor = ToolExecutor(registry, settings)
     context_builder = ContextBuilder(settings)
-    engine = AIEngine(
+    return AIEngine(
         db,
         planner,
         executor,
@@ -63,7 +65,14 @@ def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatS
         llm_provider,
         settings,
     )
-    return RepositoryChatService(db, engine, settings)
+
+
+def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatService:
+    return RepositoryChatService(db, _build_ai_engine(db, settings), settings)
+
+
+def _build_documentation_service(db: AsyncSession, settings: Settings) -> DocumentationService:
+    return DocumentationService(db, _build_ai_engine(db, settings), settings)
 
 
 def _chunk_to_response(chunk) -> ChunkResponse:
@@ -427,6 +436,86 @@ async def chat_repository(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
     except ToolPlannerError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+
+@router.get("/{repository_id}/documentation", response_model=DocumentationListResponse)
+async def list_repository_documentation(
+    repository_id: UUID,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> DocumentationListResponse:
+    doc_service = _build_documentation_service(db, settings)
+    try:
+        return await doc_service.list_types(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            branch=branch,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/documentation/{document_type}", response_model=DocumentationResponse)
+async def get_repository_documentation(
+    repository_id: UUID,
+    document_type: str,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> DocumentationResponse:
+    doc_service = _build_documentation_service(db, settings)
+    try:
+        parsed_type = parse_document_type(document_type)
+        return await doc_service.get_document(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            document_type=parsed_type,
+            branch=branch,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+
+@router.post(
+    "/{repository_id}/documentation/{document_type}/regenerate",
+    response_model=DocumentationResponse,
+)
+async def regenerate_repository_documentation(
+    repository_id: UUID,
+    document_type: str,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> DocumentationResponse:
+    doc_service = _build_documentation_service(db, settings)
+    try:
+        parsed_type = parse_document_type(document_type)
+        return await doc_service.regenerate(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            document_type=parsed_type,
+            branch=branch,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LLMProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc

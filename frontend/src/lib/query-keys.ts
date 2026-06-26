@@ -8,4 +8,11 @@ export const queryKeys = {
     ["repository", repositoryId, "pull-requests"] as const,
   repositoryGraph: (repositoryId: string, branch?: string | null) =>
     ["repository", repositoryId, "graph", branch ?? ""] as const,
+  repositoryDocumentation: (repositoryId: string, branch?: string | null) =>
+    ["repository", repositoryId, "documentation", branch ?? ""] as const,
+  repositoryDocumentationType: (
+    repositoryId: string,
+    documentType: string,
+    branch?: string | null,
+  ) => ["repository", repositoryId, "documentation", documentType, branch ?? ""] as const,
 };

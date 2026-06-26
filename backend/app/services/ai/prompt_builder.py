@@ -45,6 +45,18 @@ Rules:
 - For dependency/import/structure questions, use graph tool.
 - If no tools are needed, return an empty steps array."""
 
+DOCUMENTATION_SYSTEM_PROMPT = """You are a technical documentation writer for software repositories.
+
+Generate clear, concise Markdown documentation using ONLY the repository context provided below.
+Do not invent files, classes, methods, or behavior that are not supported by the context.
+
+Requirements:
+- Output valid Markdown only (no preamble or meta commentary).
+- Mention specific file paths, class names, and method names when they appear in the context.
+- Use headings, bullet lists, and code fences where appropriate.
+- Keep the documentation technically accurate and readable.
+- If the context is insufficient for a section, state what is missing rather than guessing."""
+
 
 class PromptBuilder:
     def build_chat_prompt(self, context_text: str, user_question: str) -> list[ChatMessage]:
@@ -91,9 +103,26 @@ Return a JSON plan selecting the tools needed to answer the question."""
         ]
 
     def build_documentation_prompt(
-        self, context_text: str, user_question: str
+        self,
+        context_text: str,
+        *,
+        document_type: str,
+        title: str,
     ) -> list[ChatMessage]:
-        raise NotImplementedError("Documentation prompts are not implemented yet")
+        user_content = f"""Documentation Request
+
+Type: {document_type}
+Title: {title}
+
+Repository Context
+
+{context_text}
+
+Generate the requested documentation in Markdown."""
+        return [
+            ChatMessage(role="system", content=DOCUMENTATION_SYSTEM_PROMPT),
+            ChatMessage(role="user", content=user_content),
+        ]
 
     def build_bug_detection_prompt(
         self, context_text: str, user_question: str

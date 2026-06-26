@@ -12,6 +12,7 @@ import {
 
 import * as authService from "@/services/auth";
 import { ApiError } from "@/lib/api-client";
+import { clearClientSessionState } from "@/lib/clear-client-session";
 import type { LoginInput, RegisterInput, User } from "@/types/auth";
 
 type AuthContextValue = {
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const login = useCallback(async (input: LoginInput) => {
+    clearClientSessionState();
     const loggedInUser = await authService.login(input);
     setUser(loggedInUser);
   }, []);
@@ -64,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await authService.logout();
+    clearClientSessionState();
     setUser(null);
   }, []);
 

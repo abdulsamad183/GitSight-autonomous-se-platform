@@ -11,7 +11,7 @@ from app.services.ai.prompt_builder import PromptBuilder
 from app.services.ai.providers.base import LLMProvider
 from app.services.ai.tools.executor import ToolExecutor
 from app.services.ai.tools.planner import LLMToolPlanner
-from app.services.ai.tools.types import ToolExecutionContext
+from app.services.ai.tools.types import ToolExecutionContext, ToolPlan
 from app.services.ai.types import ChatStreamEvent, ChatTiming, TokenUsage
 
 logger = logging.getLogger(__name__)
@@ -115,6 +115,36 @@ class AIEngine:
             completion.token_usage,
             built.tools_used,
         )
+
+    async def generate_documentation(
+        self,
+        repository_id: UUID,
+        user_id: UUID,
+        tool_plan: ToolPlan,
+        *,
+        document_type: str,
+        title: str,
+        branch: str | None = None,
+    ) -> tuple[str, TokenUsage | None]:
+        tool_ctx = self._build_tool_context(repository_id, user_id, branch)
+        tool_results = await self.executor.run(tool_plan, tool_ctx)
+        built = self.context_builder.build_from_tool_results(tool_results)
+        messages = self.prompt_builder.build_documentation_prompt(
+            built.text,
+            document_type=document_type,
+            title=title,
+        )
+        completion = await self.llm_provider.generate(messages)
+        logger.info(
+            "documentation_generated",
+            extra={
+                "repository_id": str(repository_id),
+                "document_type": document_type,
+                "chunks_used": built.chunks_used,
+                "tools_used": built.tools_used,
+            },
+        )
+        return completion.content, completion.token_usage
 
     async def stream_answer(
         self,

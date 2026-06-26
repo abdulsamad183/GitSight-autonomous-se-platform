@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { BranchSelector } from "@/components/branch-selector";
-import { RepositoryChat } from "@/components/repository-chat";
+import { RepositoryDocs } from "@/components/repository-docs";
 import { RepositorySubNav } from "@/components/repository-sub-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import {
-  useRepositoryBranches,
-  useRepositoryDetails,
-} from "@/hooks/use-repository-data";
+import { useRepositoryBranches, useRepositoryDetails } from "@/hooks/use-repository-data";
 
-export default function RepositoryChatPage() {
+export default function RepositoryDocsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,10 +36,6 @@ export default function RepositoryChatPage() {
       router.replace("/login");
     }
   }, [authLoading, isAuthenticated, router]);
-
-  const handleBranchChange = useCallback((branch: string) => {
-    setBranchOverride(branch);
-  }, []);
 
   const initialLoading =
     (branchesQuery.isLoading && branches.length === 0) ||
@@ -69,13 +62,27 @@ export default function RepositoryChatPage() {
               Back to Repository
             </Link>
             <span className="bg-gradient-to-r from-violet-600 to-sky-600 bg-clip-text text-lg font-bold text-transparent">
-              AI Chat
+              Documentation
             </span>
           </div>
+          {branches.length > 0 && selectedBranch && (
+            <BranchSelector
+              branches={branches}
+              selectedBranch={selectedBranch}
+              onSelect={setBranchOverride}
+              branchesTruncated={detail?.branches_truncated ?? false}
+            />
+          )}
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
+      <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+        <RepositorySubNav
+          repositoryId={repositoryId}
+          branch={selectedBranch}
+          activeTab="docs"
+        />
+
         {initialLoading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="size-6 animate-spin text-violet-500" />
@@ -83,41 +90,13 @@ export default function RepositoryChatPage() {
         )}
 
         {loadError && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
             {loadError}
-          </div>
+          </p>
         )}
 
-        {detail && (
-          <>
-            <RepositorySubNav
-              repositoryId={repositoryId}
-              branch={selectedBranch}
-              activeTab="chat"
-            />
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-semibold">
-                  {detail.owner}/{detail.repository_name}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Ask natural-language questions about this repository.
-                </p>
-              </div>
-              <BranchSelector
-                branches={branches}
-                selectedBranch={selectedBranch ?? detail.default_branch ?? branches[0]?.branch ?? ""}
-                onSelect={handleBranchChange}
-                branchesTruncated={false}
-              />
-            </div>
-
-            <RepositoryChat
-              repositoryId={repositoryId}
-              branch={selectedBranch ?? detail.selected_branch}
-            />
-          </>
+        {!initialLoading && !loadError && detail && (
+          <RepositoryDocs repositoryId={repositoryId} branch={selectedBranch} />
         )}
       </main>
     </div>
