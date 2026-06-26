@@ -44,7 +44,7 @@ export function PullRequestsSection({ pullRequests }: PullRequestsSectionProps) 
           <div className="max-h-[420px] divide-y overflow-y-auto">
             {pullRequests.map((pullRequest) => (
               <div
-                key={pullRequest.number}
+                key={pullRequest.id}
                 className="grid gap-3 px-4 py-3 hover:bg-muted/40 md:grid-cols-[minmax(0,1fr)_auto]"
               >
                 <div className="min-w-0">

@@ -57,6 +57,36 @@ Requirements:
 - Keep the documentation technically accurate and readable.
 - If the context is insufficient for a section, state what is missing rather than guessing."""
 
+PR_REVIEW_SYSTEM_PROMPT = """You are a senior software engineer performing a professional \
+pull request code review.
+
+Review the pull request using ONLY the repository context provided below.
+Do not invent files, classes, methods, bugs, or security issues that are not supported by \
+the context.
+
+Requirements:
+- Output valid Markdown only (no preamble or meta commentary).
+- Mention specific file paths, class names, and method names when they appear in the context.
+- Be concise, clear, and technically accurate.
+- If the context is insufficient for a section, state what is missing rather than guessing.
+- Do not invent issues.
+
+Include these sections exactly as Markdown headings:
+
+# Summary
+# Code Quality
+# Architecture
+# Potential Bugs
+# Security
+# Breaking Changes
+# Testing
+# Suggestions
+# Recommendation
+
+For Recommendation, end with exactly one of:
+- Approve
+- Request Changes"""
+
 
 class PromptBuilder:
     def build_chat_prompt(self, context_text: str, user_question: str) -> list[ChatMessage]:
@@ -129,8 +159,26 @@ Generate the requested documentation in Markdown."""
     ) -> list[ChatMessage]:
         raise NotImplementedError("Bug detection prompts are not implemented yet")
 
-    def build_pr_review_prompt(self, context_text: str, user_question: str) -> list[ChatMessage]:
-        raise NotImplementedError("PR review prompts are not implemented yet")
+    def build_pr_review_prompt(
+        self,
+        context_text: str,
+        *,
+        pr_title: str,
+        pr_number: int,
+    ) -> list[ChatMessage]:
+        user_content = f"""Pull Request Review Request
+
+PR #{pr_number}: {pr_title}
+
+Repository Context
+
+{context_text}
+
+Generate the pull request review in Markdown."""
+        return [
+            ChatMessage(role="system", content=PR_REVIEW_SYSTEM_PROMPT),
+            ChatMessage(role="user", content=user_content),
+        ]
 
     def build_audit_prompt(self, context_text: str, user_question: str) -> list[ChatMessage]:
         raise NotImplementedError("Audit prompts are not implemented yet")

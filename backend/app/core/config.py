@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     clone_base_dir: str = "/tmp/gitsight"
     max_file_size_bytes: int = 1_048_576
-    max_branches_to_analyze: int = 10
+    max_branches_to_analyze: int = 5
     clone_depth: int = 0
     github_token: str | None = None
 
@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     llm_planner_max_tokens: int = 1024
     tool_max_steps: int = 4
     graph_traversal_max_depth: int = 5
+    pr_review_max_tool_steps: int = 8
+    pr_review_max_diff_chunks: int = 30
+    pr_review_max_graph_files: int = 3
 
     @property
     def effective_planner_model(self) -> str:

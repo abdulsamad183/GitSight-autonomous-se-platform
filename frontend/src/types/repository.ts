@@ -87,6 +87,7 @@ export interface DependencyItem {
 }
 
 export interface PullRequestListItem {
+  id: string;
   number: number;
   title: string;
   state: "OPEN" | "CLOSED" | "MERGED";
@@ -98,6 +99,7 @@ export interface PullRequestListItem {
   html_url: string | null;
   github_created_at: string | null;
   github_updated_at: string | null;
+  changed_files_count: number | null;
   description?: string | null;
   github_closed_at?: string | null;
   github_merged_at?: string | null;

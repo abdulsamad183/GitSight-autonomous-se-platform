@@ -6,6 +6,7 @@ from app.models.dependency_edge import DependencyEdge, DependencyType
 from app.models.file import File
 from app.models.job import Job, JobStatus, JobType
 from app.models.job_event import JobEvent
+from app.models.pr_review import PrReview
 from app.models.pull_request import PullRequest, PullRequestState
 from app.models.repository import IndexingStatus, Repository, RepositoryStatus
 from app.models.repository_document import (
@@ -42,4 +43,5 @@ __all__ = [
     "DocumentType",
     "DocumentGeneratedBy",
     "DOCUMENT_TYPE_TITLES",
+    "PrReview",
 ]

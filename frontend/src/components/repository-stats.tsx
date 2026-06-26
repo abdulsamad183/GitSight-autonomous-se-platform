@@ -83,6 +83,31 @@ interface RepositoryStatsGridProps {
   merged_pull_requests: number;
 }
 
+export function RepositoryMetricsRibbon(props: RepositoryStatsGridProps) {
+  const items = [
+    { label: "Files", value: props.files_count },
+    { label: "Classes", value: props.classes_count },
+    { label: "Functions", value: props.functions_count + props.methods_count, suffix: "symbols" },
+    { label: "Dependencies", value: props.dependencies_count },
+    { label: "Pull Requests", value: props.total_pull_requests },
+    { label: "Open PRs", value: props.open_pull_requests },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2 rounded-xl border bg-card p-3 shadow-sm">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="flex min-w-[100px] flex-1 items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2"
+        >
+          <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
+          <span className="text-lg font-semibold tabular-nums">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function RepositoryStatsGrid(props: RepositoryStatsGridProps) {
   const values: Record<string, number> = {
     files: props.files_count,

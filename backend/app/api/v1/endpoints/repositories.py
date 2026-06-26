@@ -13,6 +13,7 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunk import ChunkListResponse, ChunkResponse, IndexStatusResponse, ReindexResponse
 from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
 from app.schemas.graph import RepositoryGraphResponse
+from app.schemas.pr_review import PullRequestReviewResponse
 from app.schemas.repository import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -44,6 +45,7 @@ from app.services.exceptions import (
 )
 from app.services.graph import repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
+from app.services.pr_review.service import PullRequestReviewService
 from app.services.search_service import SearchService
 
 router = APIRouter()
@@ -73,6 +75,10 @@ def _build_chat_service(db: AsyncSession, settings: Settings) -> RepositoryChatS
 
 def _build_documentation_service(db: AsyncSession, settings: Settings) -> DocumentationService:
     return DocumentationService(db, _build_ai_engine(db, settings), settings)
+
+
+def _build_pr_review_service(db: AsyncSession, settings: Settings) -> PullRequestReviewService:
+    return PullRequestReviewService(db, _build_ai_engine(db, settings), settings)
 
 
 def _chunk_to_response(chunk) -> ChunkResponse:
@@ -212,6 +218,58 @@ async def list_repository_pull_requests(
         )
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{repository_id}/pull-requests/{pull_request_id}/review",
+    response_model=PullRequestReviewResponse,
+)
+async def get_pull_request_review(
+    repository_id: UUID,
+    pull_request_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> PullRequestReviewResponse:
+    review_service = _build_pr_review_service(db, settings)
+    try:
+        return await review_service.get_review(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            pull_request_id=pull_request_id,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+
+@router.post(
+    "/{repository_id}/pull-requests/{pull_request_id}/review/regenerate",
+    response_model=PullRequestReviewResponse,
+)
+async def regenerate_pull_request_review(
+    repository_id: UUID,
+    pull_request_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> PullRequestReviewResponse:
+    review_service = _build_pr_review_service(db, settings)
+    try:
+        return await review_service.regenerate(
+            repository_id=repository_id,
+            user_id=current_user.id,
+            pull_request_id=pull_request_id,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
 
 
 @router.get("/{repository_id}/graph", response_model=RepositoryGraphResponse)

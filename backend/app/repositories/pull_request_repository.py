@@ -87,6 +87,21 @@ async def list_for_repository(db: AsyncSession, repository_id: UUID) -> list[Pul
     return list(result.scalars().all())
 
 
+async def get_by_id_for_repository(
+    db: AsyncSession,
+    *,
+    repository_id: UUID,
+    pull_request_id: UUID,
+) -> PullRequest | None:
+    result = await db.execute(
+        select(PullRequest).where(
+            PullRequest.repository_id == repository_id,
+            PullRequest.id == pull_request_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def count_by_state(db: AsyncSession, repository_id: UUID) -> PullRequestCounts:
     result = await db.execute(
         select(PullRequest.state, func.count())

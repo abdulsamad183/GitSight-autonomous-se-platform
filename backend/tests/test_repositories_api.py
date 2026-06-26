@@ -165,6 +165,7 @@ async def test_repository_pull_requests_endpoint_and_summary_counts(client):
     pull_requests = pull_requests_response.json()
     assert len(pull_requests) == 1
     pull_request = pull_requests[0]
+    assert "id" in pull_request
     assert pull_request["number"] == 15
     assert pull_request["title"] == "Add authentication middleware"
     assert pull_request["state"] == "OPEN"
@@ -172,6 +173,7 @@ async def test_repository_pull_requests_endpoint_and_summary_counts(client):
     assert pull_request["is_merged"] is False
     assert pull_request["source_branch"] == "feature/auth"
     assert pull_request["target_branch"] == "main"
+    assert "changed_files_count" in pull_request
 
     list_response = await client.get(LIST_URL)
     assert list_response.status_code == 200

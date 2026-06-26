@@ -23,6 +23,7 @@ from app.schemas.repository import (
     RepositorySummaryResponse,
     SymbolItem,
 )
+from app.services import branch_query_service
 from app.services.exceptions import NotFoundError
 
 
@@ -76,8 +77,9 @@ async def _build_branch_summary(db, snapshot) -> BranchSummaryResponse:
     )
 
 
-def _map_pull_request(item) -> PullRequestDetailItem:
+def _map_pull_request(item, *, changed_files_count: int | None = None) -> PullRequestDetailItem:
     return PullRequestDetailItem(
+        id=item.id,
         number=item.number,
         title=item.title,
         state=item.state.value.upper(),
@@ -89,11 +91,31 @@ def _map_pull_request(item) -> PullRequestDetailItem:
         html_url=item.html_url,
         github_created_at=item.github_created_at,
         github_updated_at=item.github_updated_at,
+        changed_files_count=changed_files_count,
         description=item.description,
         github_closed_at=item.github_closed_at,
         github_merged_at=item.github_merged_at,
         last_synced_at=item.last_synced_at,
     )
+
+
+async def _changed_files_count_for_branch(
+    db: AsyncSession,
+    *,
+    repository_id: UUID,
+    branch: str | None,
+) -> int | None:
+    if not branch:
+        return None
+    try:
+        changes = await branch_query_service.summarize_branch_changes(
+            db,
+            repository_id=repository_id,
+            branch=branch,
+        )
+        return len(changes.get("changed_files", []))
+    except Exception:
+        return None
 
 
 async def get_job_status(db: AsyncSession, *, job_id: UUID, user_id: UUID) -> JobStatusResponse:
@@ -230,7 +252,15 @@ async def list_repository_pull_requests(
         raise NotFoundError("Repository not found")
 
     pull_requests = await pull_request_repository.list_for_repository(db, repository.id)
-    return [_map_pull_request(item) for item in pull_requests]
+    items: list[PullRequestDetailItem] = []
+    for item in pull_requests:
+        changed_files_count = await _changed_files_count_for_branch(
+            db,
+            repository_id=repository.id,
+            branch=item.source_branch,
+        )
+        items.append(_map_pull_request(item, changed_files_count=changed_files_count))
+    return items
 
 
 async def get_repository_detail(

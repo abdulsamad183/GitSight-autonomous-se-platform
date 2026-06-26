@@ -146,6 +146,39 @@ class AIEngine:
         )
         return completion.content, completion.token_usage
 
+    async def generate_pr_review(
+        self,
+        repository_id: UUID,
+        user_id: UUID,
+        review_plan,
+        *,
+        pr_number: int,
+        branch: str | None = None,
+        context_collector=None,
+    ) -> tuple[str, TokenUsage | None]:
+        from app.services.pr_review.context_collector import PrReviewContextCollector
+
+        collector = context_collector or PrReviewContextCollector(
+            self.executor,
+            self.context_builder,
+        )
+        tool_ctx = self._build_tool_context(repository_id, user_id, branch)
+        context_text = await collector.collect(review_plan, tool_ctx)
+        messages = self.prompt_builder.build_pr_review_prompt(
+            context_text,
+            pr_title=review_plan.title,
+            pr_number=pr_number,
+        )
+        completion = await self.llm_provider.generate(messages)
+        logger.info(
+            "pr_review_generated",
+            extra={
+                "repository_id": str(repository_id),
+                "pull_request_id": str(review_plan.pull_request_id),
+            },
+        )
+        return completion.content, completion.token_usage
+
     async def stream_answer(
         self,
         repository_id: UUID,

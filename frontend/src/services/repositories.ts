@@ -2,6 +2,7 @@ import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 import type { RepositoryGraph } from "@/types/graph";
 import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
+import type { PullRequestReviewResponse } from "@/types/pr-review";
 import type {
   DocumentationListResponse,
   DocumentationResponse,
@@ -201,6 +202,25 @@ export async function regenerateRepositoryDocumentation(
   const query = branch ? `?branch=${encodeURIComponent(branch)}` : "";
   return apiPost<DocumentationResponse>(
     `/api/v1/repositories/${repositoryId}/documentation/${documentType}/regenerate${query}`,
+    {},
+  );
+}
+
+export async function getPullRequestReview(
+  repositoryId: string,
+  pullRequestId: string,
+): Promise<PullRequestReviewResponse> {
+  return apiGet<PullRequestReviewResponse>(
+    `/api/v1/repositories/${repositoryId}/pull-requests/${pullRequestId}/review`,
+  );
+}
+
+export async function regeneratePullRequestReview(
+  repositoryId: string,
+  pullRequestId: string,
+): Promise<PullRequestReviewResponse> {
+  return apiPost<PullRequestReviewResponse>(
+    `/api/v1/repositories/${repositoryId}/pull-requests/${pullRequestId}/review/regenerate`,
     {},
   );
 }

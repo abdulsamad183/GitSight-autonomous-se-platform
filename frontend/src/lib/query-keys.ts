@@ -15,4 +15,6 @@ export const queryKeys = {
     documentType: string,
     branch?: string | null,
   ) => ["repository", repositoryId, "documentation", documentType, branch ?? ""] as const,
+  repositoryPullRequestReview: (repositoryId: string, pullRequestId: string) =>
+    ["repository", repositoryId, "pull-requests", pullRequestId, "review"] as const,
 };

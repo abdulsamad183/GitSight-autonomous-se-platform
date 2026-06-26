@@ -54,3 +54,8 @@ class PullRequest(BaseModel):
     last_synced_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     repository = relationship("Repository", back_populates="pull_requests")
+    reviews = relationship(
+        "PrReview",
+        back_populates="pull_request",
+        cascade="all, delete-orphan",
+    )

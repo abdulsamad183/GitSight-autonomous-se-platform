@@ -93,6 +93,7 @@ class DependencyItem(BaseModel):
 
 
 class PullRequestListItem(BaseModel):
+    id: UUID
     number: int
     title: str
     state: str
@@ -104,6 +105,7 @@ class PullRequestListItem(BaseModel):
     html_url: str | None = None
     github_created_at: datetime | None = None
     github_updated_at: datetime | None = None
+    changed_files_count: int | None = None
 
 
 class PullRequestDetailItem(PullRequestListItem):

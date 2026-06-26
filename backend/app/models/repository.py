@@ -80,6 +80,11 @@ class Repository(BaseModel):
         back_populates="repository",
         cascade="all, delete-orphan",
     )
+    pr_reviews = relationship(
+        "PrReview",
+        back_populates="repository",
+        cascade="all, delete-orphan",
+    )
     code_chunks = relationship(
         "CodeChunk",
         back_populates="repository",

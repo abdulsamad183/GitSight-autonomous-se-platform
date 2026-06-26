@@ -20,6 +20,7 @@ interface JobProgressCardProps {
   pollError: string | null;
   cached?: boolean;
   compact?: boolean;
+  constrained?: boolean;
   isRefresh?: boolean;
 }
 
@@ -44,10 +45,11 @@ export function JobProgressCard({
   pollError,
   cached = false,
   compact = false,
+  constrained = false,
   isRefresh = false,
 }: JobProgressCardProps) {
   const router = useRouter();
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLDivElement>(null);
   const isFailed = job.status === "FAILED";
   const isCompleted = job.status === "COMPLETED" || cached;
   const noChanges = job.current_stage === "No changes detected";
@@ -55,7 +57,10 @@ export function JobProgressCard({
   const events = job.events ?? [];
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = logContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [events.length]);
 
   useEffect(() => {
@@ -74,14 +79,14 @@ export function JobProgressCard({
       : "Analysis in progress";
 
   const content = (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${constrained ? "flex min-h-0 flex-1 flex-col" : ""}`}>
       {!cached && (
         <>
-          <p className="text-sm font-medium text-foreground">
+          <p className="shrink-0 text-sm font-medium text-foreground">
             {job.current_stage ?? "Waiting..."}
           </p>
 
-          <div className="space-y-2">
+          <div className="shrink-0 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Progress</span>
               <span className="font-medium">{job.progress}%</span>
@@ -98,7 +103,7 @@ export function JobProgressCard({
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-1">
+          <div className="flex shrink-0 items-center justify-between gap-1">
             {PHASES.map((phase, index) => {
               const isActive = index === activePhase && !isCompleted;
               const isDone = index < activePhase || isCompleted;
@@ -122,7 +127,12 @@ export function JobProgressCard({
           </div>
 
           {events.length > 0 && (
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border bg-muted/30 p-3">
+            <div
+              ref={logContainerRef}
+              className={`space-y-1 overflow-y-auto rounded-lg border bg-muted/30 p-3 ${
+                constrained ? "min-h-0 flex-1" : "max-h-40"
+              }`}
+            >
               {events.map((event, index) => {
                 const isLast = index === events.length - 1;
                 const isRunning = job.status === "RUNNING" && isLast;
@@ -137,7 +147,6 @@ export function JobProgressCard({
                   </div>
                 );
               })}
-              <div ref={logEndRef} />
             </div>
           )}
         </>
@@ -155,15 +164,15 @@ export function JobProgressCard({
         </p>
       )}
 
-      {pollError && <p className="text-sm text-destructive">{pollError}</p>}
+      {pollError && <p className="shrink-0 text-sm text-destructive">{pollError}</p>}
       {isFailed && job.error_message && (
-        <p className="text-sm text-destructive">{job.error_message}</p>
+        <p className="shrink-0 text-sm text-destructive">{job.error_message}</p>
       )}
 
       {isCompleted && !noChanges && (
         <a
           href={`/repositories/${repositoryId}`}
-          className={buttonVariants({ variant: "default", size: compact ? "sm" : "default" })}
+          className={`shrink-0 ${buttonVariants({ variant: "default", size: compact ? "sm" : "default" })}`}
         >
           View Full Analysis
         </a>
@@ -191,9 +200,13 @@ export function JobProgressCard({
   }
 
   return (
-    <Card className="overflow-hidden border-violet-200 dark:border-violet-900">
-      <div className="h-1 bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500" />
-      <CardHeader>
+    <Card
+      className={`overflow-hidden border-violet-200 dark:border-violet-900 ${
+        constrained ? "flex h-full max-h-full min-h-0 flex-col" : ""
+      }`}
+    >
+      <div className="h-1 shrink-0 bg-gradient-to-r from-violet-500 via-indigo-500 to-sky-500" />
+      <CardHeader className="shrink-0">
         <CardTitle className="flex items-center gap-2">
           {cached ? (
             <>
@@ -211,7 +224,9 @@ export function JobProgressCard({
           </span>
         </CardDescription>
       </CardHeader>
-      <CardContent>{content}</CardContent>
+      <CardContent className={constrained ? "flex min-h-0 flex-1 flex-col overflow-hidden" : ""}>
+        {content}
+      </CardContent>
     </Card>
   );
 }

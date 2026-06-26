@@ -15,7 +15,7 @@ from tests.git_fixtures import create_two_branch_fixture
 def clone_settings(tmp_path: Path) -> Settings:
     return Settings(
         clone_base_dir=str(tmp_path / "clones"),
-        max_branches_to_analyze=10,
+        max_branches_to_analyze=5,
         clone_depth=0,
     )
 

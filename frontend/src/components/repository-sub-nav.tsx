@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type RepositorySubNavTab = "overview" | "search" | "chat" | "graph" | "docs";
+type RepositorySubNavTab = "overview" | "search" | "chat" | "graph" | "docs" | "pull-requests";
 
 const TABS: { id: RepositorySubNavTab; label: string; path: string }[] = [
   { id: "overview", label: "Overview", path: "" },
@@ -11,6 +11,7 @@ const TABS: { id: RepositorySubNavTab; label: string; path: string }[] = [
   { id: "chat", label: "Chat", path: "/chat" },
   { id: "graph", label: "Graph", path: "/graph" },
   { id: "docs", label: "Docs", path: "/docs" },
+  { id: "pull-requests", label: "Pull Requests", path: "/pull-requests" },
 ];
 
 interface RepositorySubNavProps {
