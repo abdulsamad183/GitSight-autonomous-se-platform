@@ -4,8 +4,11 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.repository_document import DocumentGeneratedBy, DocumentType
-from app.schemas.documentation import DocumentationListResponse, DocumentationResponse, DocumentationTypeItem
+from app.schemas.documentation import (
+    DocumentationListResponse,
+    DocumentationResponse,
+    DocumentationTypeItem,
+)
 
 LIST_URL = "/api/v1/repositories/{repository_id}/documentation"
 GET_URL = "/api/v1/repositories/{repository_id}/documentation/{document_type}"
