@@ -1,5 +1,3 @@
-import pytest
-
 from app.models.repository_document import DocumentType
 from app.services.documentation.discovery import (
     _path_priority,

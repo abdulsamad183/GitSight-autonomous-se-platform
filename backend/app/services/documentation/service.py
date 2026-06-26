@@ -57,7 +57,7 @@ class DocumentationService:
         user_id: UUID,
         branch: str | None,
     ) -> str:
-        repository = await repository_detail_service.get_repository_or_raise(
+        await repository_detail_service.get_repository_or_raise(
             self.db, repository_id=repository_id, user_id=user_id
         )
         if branch:

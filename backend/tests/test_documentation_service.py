@@ -1,6 +1,7 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
+
+import pytest
 
 from app.models.repository_document import DocumentGeneratedBy, DocumentType
 from app.services.documentation.service import DocumentationService, parse_document_type

@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunk import ChunkListResponse, ChunkResponse, IndexStatusResponse, ReindexResponse
+from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
 from app.schemas.graph import RepositoryGraphResponse
 from app.schemas.repository import (
     AnalyzeRequest,
@@ -22,7 +23,6 @@ from app.schemas.repository import (
     RepositoryListItem,
     RepositorySummaryResponse,
 )
-from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
 from app.schemas.search import SearchResponse
 from app.services import analysis_service, indexing_service, repository_detail_service
 from app.services.ai.context_builder import ContextBuilder
@@ -33,6 +33,7 @@ from app.services.ai.repository_chat_service import RepositoryChatService
 from app.services.ai.tools.executor import ToolExecutor
 from app.services.ai.tools.factory import build_default_tool_registry
 from app.services.ai.tools.planner import LLMToolPlanner
+from app.services.documentation.service import DocumentationService, parse_document_type
 from app.services.exceptions import (
     ConflictError,
     ForbiddenError,
@@ -43,7 +44,6 @@ from app.services.exceptions import (
 )
 from app.services.graph import repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
-from app.services.documentation.service import DocumentationService, parse_document_type
 from app.services.search_service import SearchService
 
 router = APIRouter()

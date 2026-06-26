@@ -1,4 +1,3 @@
-from app.core.config import Settings
 from app.services.ai.context_builder import ContextBuilder
 from app.services.ai.tools.executor import ToolExecutor
 from app.services.ai.tools.types import ToolExecutionContext, ToolPlan
