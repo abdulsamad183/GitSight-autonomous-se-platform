@@ -57,7 +57,7 @@ export default function RepositoryLayout({ children }: { children: React.ReactNo
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.replace("/login");
+      router.replace("/");
     }
   }, [authLoading, isAuthenticated, router]);
 

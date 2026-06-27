@@ -1,3 +1,6 @@
+from unittest.mock import MagicMock
+
+import numpy as np
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -57,6 +60,24 @@ def register_payload():
         "email": "test@example.com",
         "password": "securepass123",
     }
+
+
+def mock_fastembed_model(*, dim: int = 384) -> MagicMock:
+    mock_model = MagicMock()
+
+    def passage_embed(texts, batch_size=None, **kwargs):
+        texts_list = [texts] if isinstance(texts, str) else list(texts)
+        for _ in texts_list:
+            yield np.array([0.1] * dim)
+
+    def query_embed(queries, **kwargs):
+        queries_list = [queries] if isinstance(queries, str) else list(queries)
+        for _ in queries_list:
+            yield np.array([0.1] * dim)
+
+    mock_model.passage_embed.side_effect = passage_embed
+    mock_model.query_embed.side_effect = query_embed
+    return mock_model
 
 
 @pytest.fixture

@@ -8,7 +8,8 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
-    healthCheckPath: /health
+    healthCheckPath: /health/ready
+    preDeployCommand: uv run alembic upgrade head
     envVars:
       - key: ENV
         value: production
@@ -16,11 +17,13 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: EMBEDDING_BATCH_SIZE
+        value: "8"
+      - key: EMBEDDING_THREADS
+        value: "1"

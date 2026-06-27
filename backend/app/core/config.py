@@ -1,6 +1,12 @@
+import json
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+INSECURE_SECRET_KEYS = frozenset(
+    {"change-me-in-production", "test-secret-key", "test-secret-key-for-ci"}
+)
 
 
 class Settings(BaseSettings):
@@ -33,6 +39,8 @@ class Settings(BaseSettings):
     embedding_model_name: str = "BAAI/bge-small-en-v1.5"
     embedding_dimension: int = 384
     embedding_batch_size: int = 32
+    embedding_threads: int = 1
+    embedding_gc_between_batches: bool | None = None
 
     search_default_limit: int = 20
     search_max_limit: int = 100
@@ -47,6 +55,10 @@ class Settings(BaseSettings):
 
     llm_provider: str = "groq"
     llm_model: str = "groq/compound-mini"
+    llm_model_fallbacks: list[str] = [
+        "groq/compound",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+    ]
     llm_temperature: float = 0.2
     llm_max_tokens: int = 8192
     rag_top_k: int = 5
@@ -61,9 +73,58 @@ class Settings(BaseSettings):
     pr_review_max_diff_chunks: int = 30
     pr_review_max_graph_files: int = 3
 
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> object:
+        return cls._parse_string_list(value)
+
+    @field_validator("llm_model_fallbacks", mode="before")
+    @classmethod
+    def parse_llm_model_fallbacks(cls, value: object) -> object:
+        return cls._parse_string_list(value)
+
+    @staticmethod
+    def _parse_string_list(value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("["):
+                return json.loads(stripped)
+            return [item.strip() for item in stripped.split(",") if item.strip()]
+        return value
+
+    @staticmethod
+    def _dedupe_models(primary: str, fallbacks: list[str]) -> list[str]:
+        chain: list[str] = []
+        seen: set[str] = set()
+        for model in [primary, *fallbacks]:
+            if model not in seen:
+                seen.add(model)
+                chain.append(model)
+        return chain
+
     @property
     def effective_planner_model(self) -> str:
         return self.llm_planner_model or self.llm_model
+
+    @property
+    def llm_models_chain(self) -> list[str]:
+        return self._dedupe_models(self.llm_model, self.llm_model_fallbacks)
+
+    @property
+    def planner_models_chain(self) -> list[str]:
+        return self._dedupe_models(self.effective_planner_model, self.llm_model_fallbacks)
+
+    @property
+    def effective_embedding_batch_size(self) -> int:
+        if self.is_development:
+            return self.embedding_batch_size
+        return min(self.embedding_batch_size, 8)
+
+    @property
+    def should_gc_between_embedding_batches(self) -> bool:
+        if self.embedding_gc_between_batches is not None:
+            return self.embedding_gc_between_batches
+        return not self.is_development
 
     @property
     def is_development(self) -> bool:
@@ -77,6 +138,22 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """Sync URL for Alembic migrations."""
         return self.database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    def validate_production_settings(self) -> None:
+        if self.is_development:
+            return
+
+        if self.secret_key in INSECURE_SECRET_KEYS or len(self.secret_key) < 32:
+            raise ValueError(
+                "SECRET_KEY must be a secure random string of at least 32 characters in production"
+            )
+
+        lowered_db_url = self.database_url.lower()
+        if "localhost" in lowered_db_url or "127.0.0.1" in lowered_db_url:
+            raise ValueError("DATABASE_URL must not point to localhost in production")
+
+        if not self.groq_api_key:
+            raise ValueError("GROQ_API_KEY is required in production")
 
 
 @lru_cache

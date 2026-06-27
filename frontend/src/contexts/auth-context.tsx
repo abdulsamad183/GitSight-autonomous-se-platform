@@ -60,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
+    clearClientSessionState();
     const newUser = await authService.register(input);
     setUser(newUser);
   }, []);

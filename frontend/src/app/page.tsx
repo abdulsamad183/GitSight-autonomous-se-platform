@@ -2,6 +2,7 @@ import { Bot, Network, Search } from "lucide-react";
 
 import { GitSightLogo } from "@/components/gitsight-logo";
 import { HomeCTA, HomeNav } from "@/components/home-cta";
+import { HomeInfoNotes } from "@/components/home-info-notes";
 
 const capabilities = [
   { icon: Network, label: "Repository ingestion" },
@@ -35,7 +36,9 @@ export default function Home() {
 
         <HomeCTA className="mt-8 justify-center" />
 
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-600">
+        <HomeInfoNotes />
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-slate-600">
           {capabilities.map((item) => {
             const Icon = item.icon;
             return (

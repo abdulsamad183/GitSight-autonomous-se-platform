@@ -34,9 +34,26 @@ def _make_chunk(content: str) -> CodeChunk:
     return chunk
 
 
-def test_generate_embeddings_uses_batch_encode():
+def _mock_fastembed_model() -> MagicMock:
     mock_model = MagicMock()
-    mock_model.encode.return_value = np.array([[0.1, 0.2], [0.3, 0.4]])
+
+    def passage_embed(texts, batch_size=None, **kwargs):
+        texts_list = [texts] if isinstance(texts, str) else list(texts)
+        for _ in texts_list:
+            yield np.array([0.1, 0.2])
+
+    def query_embed(queries, **kwargs):
+        queries_list = [queries] if isinstance(queries, str) else list(queries)
+        for _ in queries_list:
+            yield np.array([0.5, 0.6])
+
+    mock_model.passage_embed.side_effect = passage_embed
+    mock_model.query_embed.side_effect = query_embed
+    return mock_model
+
+
+def test_generate_embeddings_uses_batch_encode():
+    mock_model = _mock_fastembed_model()
 
     with patch(
         "app.services.indexing.embedding_service.get_embedding_model",
@@ -46,16 +63,29 @@ def test_generate_embeddings_uses_batch_encode():
         chunks = [_make_chunk("def a(): pass"), _make_chunk("def b(): pass")]
         result = service.generate_embeddings(chunks)
 
-    mock_model.encode.assert_called_once()
-    call_kwargs = mock_model.encode.call_args
-    assert call_kwargs.kwargs["batch_size"] == service.settings.embedding_batch_size
+    mock_model.passage_embed.assert_called_once()
+    call_kwargs = mock_model.passage_embed.call_args
+    assert call_kwargs.kwargs["batch_size"] == service.settings.effective_embedding_batch_size
     assert len(result) == 2
+
+
+def test_generate_query_embedding_uses_query_embed():
+    mock_model = _mock_fastembed_model()
+
+    with patch(
+        "app.services.indexing.embedding_service.get_embedding_model",
+        return_value=mock_model,
+    ):
+        service = EmbeddingService(db=MagicMock())
+        result = service.generate_query_embedding("search me")
+
+    mock_model.query_embed.assert_called_once_with(["search me"])
+    assert result == [0.5, 0.6]
 
 
 @pytest.mark.asyncio
 async def test_embed_chunks_batches_db_writes():
-    mock_model = MagicMock()
-    mock_model.encode.return_value = np.array([[0.1] * 384, [0.2] * 384])
+    mock_model = _mock_fastembed_model()
 
     chunks = [_make_chunk("def a(): pass"), _make_chunk("def b(): pass")]
 

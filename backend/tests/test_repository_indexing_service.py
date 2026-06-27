@@ -1,9 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
-import numpy as np
 import pytest
 from git import Repo
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -21,6 +20,7 @@ from app.repositories import (
 )
 from app.schemas.analysis import FileCreate, SnapshotCreate, SymbolCreate
 from app.services.indexing.repository_indexing_service import RepositoryIndexingService
+from tests.conftest import mock_fastembed_model
 from tests.git_fixtures import _run_git, commit_file, create_two_branch_fixture, init_git_repo
 
 
@@ -264,14 +264,7 @@ async def test_repository_indexing_creates_chunks_and_embeddings(indexing_record
     )
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    mock_model = MagicMock()
-
-    def mock_encode(texts, batch_size=None, show_progress_bar=False):
-        if isinstance(texts, str):
-            return np.array([0.1] * 384)
-        return np.array([[0.1] * 384 for _ in texts])
-
-    mock_model.encode.side_effect = mock_encode
+    mock_model = mock_fastembed_model()
 
     git_repo = Repo(repo_path)
     try:
@@ -314,14 +307,7 @@ async def test_multi_branch_indexing_full_default_and_diff_secondary(multi_branc
     )
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    mock_model = MagicMock()
-
-    def mock_encode(texts, batch_size=None, show_progress_bar=False):
-        if isinstance(texts, str):
-            return np.array([0.1] * 384)
-        return np.array([[0.1] * 384 for _ in texts])
-
-    mock_model.encode.side_effect = mock_encode
+    mock_model = mock_fastembed_model()
 
     git_repo = Repo(repo_path)
     try:

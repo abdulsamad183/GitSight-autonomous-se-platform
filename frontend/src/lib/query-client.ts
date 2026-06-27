@@ -1,4 +1,13 @@
-import { QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
+
+import { ApiError } from "@/lib/api-client";
+
+function handleUnauthorized(error: unknown): void {
+  if (typeof window === "undefined") return;
+  if (error instanceof ApiError && error.status === 401) {
+    window.location.href = "/";
+  }
+}
 
 export function makeQueryClient(): QueryClient {
   return new QueryClient({
@@ -7,9 +16,20 @@ export function makeQueryClient(): QueryClient {
         staleTime: 5 * 60 * 1000,
         gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,
-        retry: 1,
+        retry: (failureCount, error) => {
+          if (error instanceof ApiError && error.status === 401) {
+            return false;
+          }
+          return failureCount < 1;
+        },
       },
     },
+    queryCache: new QueryCache({
+      onError: handleUnauthorized,
+    }),
+    mutationCache: new MutationCache({
+      onError: handleUnauthorized,
+    }),
   });
 }
 

@@ -1,4 +1,11 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const DEFAULT_DEV_API_URL = "http://localhost:8000";
+
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_PROXY === "true") {
+    return "";
+  }
+  return process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_DEV_API_URL;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -10,7 +17,7 @@ export class ApiError extends Error {
   }
 }
 
-async function parseErrorMessage(response: Response): Promise<string> {
+export async function parseErrorMessage(response: Response): Promise<string> {
   try {
     const data = await response.json();
     if (typeof data.detail === "string") {
@@ -30,7 +37,7 @@ export async function apiRequest<T>(
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     method,
     headers: body ? { "Content-Type": "application/json" } : { Accept: "application/json" },
     body: body ? JSON.stringify(body) : undefined,

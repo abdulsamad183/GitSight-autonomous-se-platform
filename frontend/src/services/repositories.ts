@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
+import { ApiError, apiDelete, apiGet, apiPost, getApiBaseUrl, parseErrorMessage } from "@/lib/api-client";
 import type { RepositoryGraph } from "@/types/graph";
 import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
@@ -92,8 +92,6 @@ export async function getRepositoryChunk(
   return apiGet<ChunkDetail>(`/api/v1/repositories/${repositoryId}/chunks/${chunkId}`);
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export async function chatRepository(
   repositoryId: string,
   body: ChatRequest,
@@ -115,7 +113,7 @@ export async function streamChatRepository(
   repositoryId: string,
   options: StreamChatOptions,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/repositories/${repositoryId}/chat`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/v1/repositories/${repositoryId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
     credentials: "include",
@@ -128,14 +126,8 @@ export async function streamChatRepository(
   });
 
   if (!response.ok) {
-    let message = `Request failed with status ${response.status}`;
-    try {
-      const data = await response.json();
-      if (typeof data.detail === "string") message = data.detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(message);
+    const message = await parseErrorMessage(response);
+    throw new ApiError(response.status, message);
   }
 
   const reader = response.body?.getReader();
@@ -157,7 +149,13 @@ export async function streamChatRepository(
     for (const part of parts) {
       const line = part.trim();
       if (!line.startsWith("data:")) continue;
-      const payload = JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
+      let payload: ChatStreamEvent;
+      try {
+        payload = JSON.parse(line.slice(5).trim()) as ChatStreamEvent;
+      } catch {
+        options.onError("Failed to parse streaming response");
+        continue;
+      }
       if (payload.type === "token") {
         options.onToken(payload.content);
       } else if (payload.type === "tool_start") {

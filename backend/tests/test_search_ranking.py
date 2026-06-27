@@ -1,7 +1,6 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
-import numpy as np
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -13,6 +12,7 @@ from app.models.repository import RepositoryStatus
 from app.models.user import User
 from app.repositories import chunk_embedding_repository, repository_repository
 from app.services.search_service import SearchService
+from tests.conftest import mock_fastembed_model
 from tests.git_fixtures import commit_file, init_git_repo
 
 
@@ -70,8 +70,7 @@ async def search_fixture(tmp_path):
         db.add(chunk)
         await db.flush()
 
-        mock_model = MagicMock()
-        mock_model.encode.return_value = np.array([0.1] * 384)
+        mock_model = mock_fastembed_model()
         with patch(
             "app.services.indexing.embedding_service.get_embedding_model",
             return_value=mock_model,
@@ -132,8 +131,7 @@ async def test_semantic_search_returns_results(search_fixture):
     )
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    mock_model = MagicMock()
-    mock_model.encode.return_value = np.array([0.1] * 384)
+    mock_model = mock_fastembed_model()
 
     async with session_factory() as db:
         with patch(
@@ -160,8 +158,7 @@ async def test_hybrid_search_combines_scores(search_fixture):
     )
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    mock_model = MagicMock()
-    mock_model.encode.return_value = np.array([0.1] * 384)
+    mock_model = mock_fastembed_model()
 
     async with session_factory() as db:
         with patch(
@@ -187,8 +184,7 @@ async def test_retrieve_context_returns_full_content(search_fixture):
     )
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    mock_model = MagicMock()
-    mock_model.encode.return_value = np.array([0.1] * 384)
+    mock_model = mock_fastembed_model()
 
     async with session_factory() as db:
         with patch(
