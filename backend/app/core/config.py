@@ -126,6 +126,11 @@ class Settings(BaseSettings):
 
     @property
     def effective_embedding_model_name(self) -> str:
+        if self.embedding_provider == "google":
+            model_name = self.embedding_model_name
+            if model_name in {"text-embedding-004", "embedding-001", "BAAI/bge-small-en-v1.5"}:
+                return "gemini-embedding-001"
+            return model_name.removeprefix("models/")
         return self.embedding_model_name
 
     @property

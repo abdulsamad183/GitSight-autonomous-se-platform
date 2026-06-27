@@ -85,11 +85,22 @@ def test_generate_query_embedding_uses_query_embed():
     assert result == [0.5, 0.6]
 
 
-def test_google_backend_embed_passages():
+def test_google_backend_resolves_legacy_model_name():
     settings = Settings(
         embedding_provider="google",
         google_api_key="test-key",
         embedding_model_name="text-embedding-004",
+        embedding_dimension=384,
+    )
+    backend = GoogleEmbeddingBackend(settings)
+    assert backend._resolve_model_name() == "gemini-embedding-001"
+
+
+def test_google_backend_embed_passages():
+    settings = Settings(
+        embedding_provider="google",
+        google_api_key="test-key",
+        embedding_model_name="gemini-embedding-001",
         embedding_dimension=384,
     )
     backend = GoogleEmbeddingBackend(settings)
@@ -102,15 +113,17 @@ def test_google_backend_embed_passages():
     mock_post.assert_called_once()
     payload = mock_post.call_args.args[1]
     assert len(payload["requests"]) == 2
-    assert payload["requests"][0]["taskType"] == "RETRIEVAL_DOCUMENT"
-    assert payload["requests"][0]["outputDimensionality"] == 384
+    assert payload["requests"][0]["model"] == "models/gemini-embedding-001"
+    assert payload["requests"][0]["embedContentConfig"]["taskType"] == "RETRIEVAL_DOCUMENT"
+    assert payload["requests"][0]["embedContentConfig"]["outputDimensionality"] == 384
+    assert "gemini-embedding-001" in mock_post.call_args.args[0]
 
 
 def test_google_backend_embed_query():
     settings = Settings(
         embedding_provider="google",
         google_api_key="test-key",
-        embedding_model_name="text-embedding-004",
+        embedding_model_name="gemini-embedding-001",
         embedding_dimension=384,
     )
     backend = GoogleEmbeddingBackend(settings)
@@ -121,7 +134,7 @@ def test_google_backend_embed_query():
 
     assert len(result) == 384
     payload = mock_post.call_args.args[1]
-    assert payload["requests"][0]["taskType"] == "RETRIEVAL_QUERY"
+    assert payload["requests"][0]["embedContentConfig"]["taskType"] == "RETRIEVAL_QUERY"
 
 
 @pytest.mark.asyncio

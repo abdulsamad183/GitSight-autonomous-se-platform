@@ -9,6 +9,8 @@ from app.services.exceptions import EmbeddingProviderError
 logger = logging.getLogger(__name__)
 
 GOOGLE_EMBED_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+GOOGLE_DEFAULT_MODEL = "gemini-embedding-001"
+GOOGLE_LEGACY_MODELS = frozenset({"text-embedding-004", "embedding-001", "BAAI/bge-small-en-v1.5"})
 GOOGLE_MAX_BATCH_SIZE = 100
 GOOGLE_MAX_RETRIES = 3
 
@@ -19,11 +21,16 @@ class GoogleEmbeddingBackend:
             raise EmbeddingProviderError("GOOGLE_API_KEY is not configured")
         self.settings = settings
 
-    def _model_resource(self) -> str:
+    def _resolve_model_name(self) -> str:
         model_name = self.settings.embedding_model_name
+        if model_name in GOOGLE_LEGACY_MODELS:
+            return GOOGLE_DEFAULT_MODEL
         if model_name.startswith("models/"):
-            return model_name
-        return f"models/{model_name}"
+            return model_name.removeprefix("models/")
+        return model_name
+
+    def _model_resource(self) -> str:
+        return f"models/{self._resolve_model_name()}"
 
     def embed_passages(self, texts: list[str]) -> list[list[float]]:
         return self._embed_texts(texts, task_type="RETRIEVAL_DOCUMENT")
@@ -54,8 +61,10 @@ class GoogleEmbeddingBackend:
                 {
                     "model": model,
                     "content": {"parts": [{"text": text}]},
-                    "taskType": task_type,
-                    "outputDimensionality": self.settings.embedding_dimension,
+                    "embedContentConfig": {
+                        "taskType": task_type,
+                        "outputDimensionality": self.settings.embedding_dimension,
+                    },
                 }
                 for text in texts
             ]

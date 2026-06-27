@@ -26,7 +26,7 @@ services:
       - key: EMBEDDING_PROVIDER
         value: google
       - key: EMBEDDING_MODEL_NAME
-        value: text-embedding-004
+        value: gemini-embedding-001
       - key: EMBEDDING_DIMENSION
         value: "384"
       - key: GOOGLE_API_KEY
