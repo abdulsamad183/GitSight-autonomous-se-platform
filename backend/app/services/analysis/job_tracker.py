@@ -17,6 +17,7 @@ class JobTracker:
     def __init__(self, db: AsyncSession, job: Job) -> None:
         self.db = db
         self.job = job
+        self.job_id = job.id
 
     async def set_stage(self, stage: tuple[str, float]) -> None:
         name, progress = stage
@@ -27,7 +28,7 @@ class JobTracker:
             progress=progress,
             current_stage=name,
         )
-        await job_event_repository.append(self.db, job_id=self.job.id, message=name)
+        await job_event_repository.append(self.db, job_id=self.job_id, message=name)
         await self.db.commit()
 
     async def set_message(self, message: str, progress: float | None = None) -> None:
@@ -35,12 +36,12 @@ class JobTracker:
         if progress is not None:
             kwargs["progress"] = progress
         await job_repository.update_progress(self.db, self.job, **kwargs)
-        await job_event_repository.append(self.db, job_id=self.job.id, message=message)
+        await job_event_repository.append(self.db, job_id=self.job_id, message=message)
         await self.db.commit()
 
     async def log_warning(self, message: str) -> None:
         await job_event_repository.append(
-            self.db, job_id=self.job.id, message=f"Warning: {message}"
+            self.db, job_id=self.job_id, message=f"Warning: {message}"
         )
         await self.db.commit()
 
@@ -79,7 +80,7 @@ class JobTracker:
             progress=100.0,
             current_stage=STAGE_COMPLETED[0],
         )
-        await job_event_repository.append(self.db, job_id=self.job.id, message=STAGE_COMPLETED[0])
+        await job_event_repository.append(self.db, job_id=self.job_id, message=STAGE_COMPLETED[0])
         await self.db.commit()
 
     async def mark_completed_with_stage(self, stage: str) -> None:
@@ -90,7 +91,7 @@ class JobTracker:
             progress=100.0,
             current_stage=stage,
         )
-        await job_event_repository.append(self.db, job_id=self.job.id, message=stage)
+        await job_event_repository.append(self.db, job_id=self.job_id, message=stage)
         await self.db.commit()
 
     async def mark_failed(self, error: str) -> None:
@@ -101,5 +102,5 @@ class JobTracker:
             current_stage="Failed",
             error_message=error,
         )
-        await job_event_repository.append(self.db, job_id=self.job.id, message=f"Failed: {error}")
+        await job_event_repository.append(self.db, job_id=self.job_id, message=f"Failed: {error}")
         await self.db.commit()

@@ -104,19 +104,47 @@ def test_google_backend_embed_passages():
         embedding_dimension=384,
     )
     backend = GoogleEmbeddingBackend(settings)
+    vector_a = [0.1] * 384
+    vector_b = [0.3] * 384
 
     with patch.object(backend, "_post_with_retries") as mock_post:
-        mock_post.return_value = {"embeddings": [{"values": [0.1, 0.2]}, {"values": [0.3, 0.4]}]}
+        mock_post.return_value = {
+            "embeddings": [{"values": vector_a}, {"values": vector_b}],
+        }
         result = backend.embed_passages(["def a(): pass", "def b(): pass"])
 
-    assert result == [[0.1, 0.2], [0.3, 0.4]]
+    assert len(result) == 2
+    assert all(len(vector) == 384 for vector in result)
+    for vector in result:
+        norm = sum(value * value for value in vector) ** 0.5
+        assert abs(norm - 1.0) < 1e-6
     mock_post.assert_called_once()
     payload = mock_post.call_args.args[1]
     assert len(payload["requests"]) == 2
     assert payload["requests"][0]["model"] == "models/gemini-embedding-001"
     assert payload["requests"][0]["embedContentConfig"]["taskType"] == "RETRIEVAL_DOCUMENT"
+    assert payload["requests"][0]["outputDimensionality"] == 384
     assert payload["requests"][0]["embedContentConfig"]["outputDimensionality"] == 384
     assert "gemini-embedding-001" in mock_post.call_args.args[0]
+
+
+def test_google_backend_truncates_and_normalizes_oversized_vectors():
+    settings = Settings(
+        embedding_provider="google",
+        google_api_key="test-key",
+        embedding_model_name="gemini-embedding-001",
+        embedding_dimension=384,
+    )
+    backend = GoogleEmbeddingBackend(settings)
+
+    with patch.object(backend, "_post_with_retries") as mock_post:
+        mock_post.return_value = {"embeddings": [{"values": [1.0, 0.0] * 1536}]}
+        result = backend.embed_passages(["hello"])
+
+    assert len(result) == 1
+    assert len(result[0]) == 384
+    norm = sum(value * value for value in result[0]) ** 0.5
+    assert abs(norm - 1.0) < 1e-6
 
 
 def test_google_backend_embed_query():

@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 
 import httpx
@@ -61,6 +62,8 @@ class GoogleEmbeddingBackend:
                 {
                     "model": model,
                     "content": {"parts": [{"text": text}]},
+                    "taskType": task_type,
+                    "outputDimensionality": self.settings.embedding_dimension,
                     "embedContentConfig": {
                         "taskType": task_type,
                         "outputDimensionality": self.settings.embedding_dimension,
@@ -82,9 +85,37 @@ class GoogleEmbeddingBackend:
             values = item.get("values")
             if not isinstance(values, list):
                 raise EmbeddingProviderError("Google embedding API response missing values")
-            vectors.append([float(value) for value in values])
+            vector = self._finalize_vector([float(value) for value in values])
+            if len(vector) != len(values):
+                logger.debug(
+                    "Truncated Google embedding from %d to %d dimensions",
+                    len(values),
+                    len(vector),
+                )
+            vectors.append(vector)
 
         return vectors
+
+    def _finalize_vector(self, values: list[float]) -> list[float]:
+        target_dim = self.settings.embedding_dimension
+        if len(values) > target_dim:
+            values = values[:target_dim]
+        elif len(values) < target_dim:
+            raise EmbeddingProviderError(
+                f"Google embedding returned {len(values)} dimensions, expected {target_dim}"
+            )
+
+        if self._resolve_model_name() == GOOGLE_DEFAULT_MODEL and target_dim != 3072:
+            values = self._l2_normalize(values)
+
+        return values
+
+    @staticmethod
+    def _l2_normalize(values: list[float]) -> list[float]:
+        norm = math.sqrt(sum(value * value for value in values))
+        if norm == 0:
+            return values
+        return [value / norm for value in values]
 
     def _post_with_retries(self, url: str, payload: dict) -> dict:
         last_error: Exception | None = None
