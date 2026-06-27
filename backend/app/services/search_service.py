@@ -100,7 +100,7 @@ class SearchService:
         threshold = (
             threshold if threshold is not None else self.settings.search_similarity_threshold
         )
-        query_vector = self._embedding_service.generate_query_embedding(query)
+        query_vector = await self._embedding_service.generate_query_embedding(query)
         rows = await search_repository.semantic_search(
             self.db,
             repository_id=repository_id,
@@ -185,7 +185,7 @@ class SearchService:
         limit = limit or self.settings.search_default_limit
         candidate_limit = limit * self.settings.search_candidate_multiplier
 
-        query_vector = self._embedding_service.generate_query_embedding(query)
+        query_vector = await self._embedding_service.generate_query_embedding(query)
         keyword_rows = await search_repository.keyword_search(
             self.db,
             repository_id=repository_id,
@@ -237,7 +237,7 @@ class SearchService:
             results = await self.semantic_search(
                 repository_id, query, limit=limit, offset=offset, branch=branch
             )
-            query_vector = self._embedding_service.generate_query_embedding(query)
+            query_vector = await self._embedding_service.generate_query_embedding(query)
             total = await search_repository.semantic_search_count(
                 self.db,
                 repository_id=repository_id,

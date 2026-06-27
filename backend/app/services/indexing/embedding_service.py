@@ -1,3 +1,4 @@
+import asyncio
 import gc
 import logging
 from uuid import UUID
@@ -18,27 +19,34 @@ class EmbeddingService:
         self.settings = settings or get_settings()
         self._backend: EmbeddingBackend = get_embedding_backend(self.settings)
 
+    async def _embed_passages(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        return await asyncio.to_thread(self._backend.embed_passages, texts)
+
+    async def _embed_query(self, text: str) -> list[float]:
+        return await asyncio.to_thread(self._backend.embed_query, text)
+
     def generate_embedding(self, text: str) -> list[float]:
         return self._backend.embed_passages([text])[0]
 
-    def generate_query_embedding(self, text: str) -> list[float]:
-        return self._backend.embed_query(text)
+    async def generate_query_embedding(self, text: str) -> list[float]:
+        return await self._embed_query(text)
 
-    def generate_embeddings(self, chunks: list[CodeChunk]) -> list[list[float]]:
-        if not chunks:
-            return []
-        return self._backend.embed_passages([chunk.content for chunk in chunks])
+    def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+        return self._backend.embed_passages(texts)
 
     async def embed_chunk(self, chunk_id: UUID) -> None:
         chunk = await code_chunk_repository.get_by_id(self.db, chunk_id)
         if chunk is None:
             return
 
-        embedding = self.generate_embedding(chunk.content)
+        content = chunk.content
+        embeddings = await self._embed_passages([content])
         await chunk_embedding_repository.bulk_upsert(
             self.db,
             chunk_ids=[chunk_id],
-            embeddings=[embedding],
+            embeddings=[embeddings[0]],
             model_name=self.settings.effective_embedding_model_name,
         )
 
@@ -52,10 +60,12 @@ class EmbeddingService:
 
         for start in range(0, total, batch_size):
             batch = chunks[start : start + batch_size]
-            embeddings = self.generate_embeddings(batch)
+            chunk_ids = [chunk.id for chunk in batch]
+            texts = [chunk.content for chunk in batch]
+            embeddings = await self._embed_passages(texts)
             await chunk_embedding_repository.bulk_upsert(
                 self.db,
-                chunk_ids=[chunk.id for chunk in batch],
+                chunk_ids=chunk_ids,
                 embeddings=embeddings,
                 model_name=self.settings.effective_embedding_model_name,
             )

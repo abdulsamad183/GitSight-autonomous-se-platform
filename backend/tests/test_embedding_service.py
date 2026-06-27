@@ -62,8 +62,7 @@ def test_generate_embeddings_uses_batch_encode():
         return_value=mock_model,
     ):
         service = EmbeddingService(db=MagicMock())
-        chunks = [_make_chunk("def a(): pass"), _make_chunk("def b(): pass")]
-        result = service.generate_embeddings(chunks)
+        result = service.generate_embeddings(["def a(): pass", "def b(): pass"])
 
     mock_model.passage_embed.assert_called_once()
     call_kwargs = mock_model.passage_embed.call_args
@@ -71,7 +70,8 @@ def test_generate_embeddings_uses_batch_encode():
     assert len(result) == 2
 
 
-def test_generate_query_embedding_uses_query_embed():
+@pytest.mark.asyncio
+async def test_generate_query_embedding_uses_query_embed():
     mock_model = _mock_fastembed_model()
 
     with patch(
@@ -79,7 +79,7 @@ def test_generate_query_embedding_uses_query_embed():
         return_value=mock_model,
     ):
         service = EmbeddingService(db=MagicMock())
-        result = service.generate_query_embedding("search me")
+        result = await service.generate_query_embedding("search me")
 
     mock_model.query_embed.assert_called_once_with(["search me"])
     assert result == [0.5, 0.6]
