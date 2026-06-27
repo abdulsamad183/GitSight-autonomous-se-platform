@@ -28,4 +28,4 @@ services:
       - key: EMBEDDING_THREADS
         value: "1"
       - key: MAX_BRANCHES_TO_ANALYZE
-        value: "2"
+        value: "1"

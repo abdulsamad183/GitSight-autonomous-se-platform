@@ -14,7 +14,7 @@ export function DashboardHero({ username }: DashboardHeroProps) {
         {username ? `Welcome back, ${username}` : "Welcome back"}
       </h1>
       <p className="mt-3 max-w-md text-sm text-slate-600 sm:text-base">
-        Paste a GitHub URL below to analyze your repository.
+        Paste a GitHub URL below to analyze the default branch of your repository.
       </p>
     </div>
   );

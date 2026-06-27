@@ -21,7 +21,7 @@ def test_branch_cap_truncates_analysis(tmp_path: Path):
 
     settings = Settings(
         clone_base_dir=str(tmp_path / "clones"),
-        max_branches_to_analyze=2,
+        max_branches_to_analyze=1,
         clone_depth=0,
     )
     cloner = RepositoryCloner(settings)
@@ -29,7 +29,7 @@ def test_branch_cap_truncates_analysis(tmp_path: Path):
 
     try:
         assert result.total_branches_found == 15
-        assert len(result.branches) == 2
+        assert len(result.branches) == 1
         assert result.branches_truncated is True
         assert result.branches[0] == "main"
     finally:

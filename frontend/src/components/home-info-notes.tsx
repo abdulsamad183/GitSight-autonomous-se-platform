@@ -1,4 +1,4 @@
-import { Globe, UserPlus } from "lucide-react";
+import { GitBranch, Globe, UserPlus } from "lucide-react";
 
 const notes = [
   {
@@ -9,6 +9,16 @@ const notes = [
         GitSight currently supports <span className="font-medium text-slate-800">public GitHub repositories</span>{" "}
         only. Private repository support is coming soon via GitHub sign-in or a Personal Access Token
         (PAT).
+      </>
+    ),
+  },
+  {
+    id: "branch-limit",
+    icon: GitBranch,
+    content: (
+      <>
+        Analysis is limited to the <span className="font-medium text-slate-800">default branch only</span>{" "}
+        (one branch per repository) to keep indexing fast and reliable on hosted infrastructure.
       </>
     ),
   },

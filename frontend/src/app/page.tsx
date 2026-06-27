@@ -31,7 +31,8 @@ export default function Home() {
           Understand every repository before you change it.
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
-          Paste a GitHub URL to analyze structure, dependencies, branches, and pull requests.
+          Paste a GitHub URL to analyze structure, dependencies, and pull requests on the default
+          branch.
         </p>
 
         <HomeCTA className="mt-8 justify-center" />

@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     clone_base_dir: str = "/tmp/gitsight"
     max_file_size_bytes: int = 1_048_576
-    max_branches_to_analyze: int = 2
+    max_branches_to_analyze: int = 1
     clone_depth: int = 0
     github_token: str | None = None
 
