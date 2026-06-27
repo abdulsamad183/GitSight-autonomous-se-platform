@@ -22,6 +22,7 @@ See `.env.example` for the full list. Production requires:
 - `SECRET_KEY` (32+ character random string)
 - `GROQ_API_KEY`
 - `GITHUB_TOKEN` (recommended for GitHub API rate limits)
+- `EMBEDDING_PROVIDER=google` and `GOOGLE_API_KEY` (production; no local embedding model)
 - `CORS_ORIGINS` (JSON array or comma-separated origins)
 
 ## Render deployment
@@ -30,7 +31,7 @@ Use `infrastructure/render.yaml` or deploy the `backend/Dockerfile` as a Docker 
 
 - Health check path: `/health/ready`
 - Pre-deploy: `uv run alembic upgrade head`
-- Recommended plan: Starter or higher for heavy concurrent indexing; embeddings use ONNX (`fastembed`) and are tuned for low RAM via `EMBEDDING_BATCH_SIZE=8` and `EMBEDDING_THREADS=1` in `render.yaml`.
+- Recommended plan: Starter or higher for heavy indexing; production uses **Google embedding API** (`EMBEDDING_PROVIDER=google`) to avoid loading a local model on Render.
 
 ## Scripts
 

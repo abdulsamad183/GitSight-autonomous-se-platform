@@ -270,7 +270,7 @@ async def test_repository_indexing_creates_chunks_and_embeddings(indexing_record
     try:
         async with session_factory() as db:
             with patch(
-                "app.services.indexing.embedding_service.get_embedding_model",
+                "app.services.indexing.providers.local_embedding.get_embedding_model",
                 return_value=mock_model,
             ):
                 service = RepositoryIndexingService(db)
@@ -313,7 +313,7 @@ async def test_multi_branch_indexing_full_default_and_diff_secondary(multi_branc
     try:
         async with session_factory() as db:
             with patch(
-                "app.services.indexing.embedding_service.get_embedding_model",
+                "app.services.indexing.providers.local_embedding.get_embedding_model",
                 return_value=mock_model,
             ):
                 service = RepositoryIndexingService(db)

@@ -23,9 +23,15 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: EMBEDDING_PROVIDER
+        value: google
+      - key: EMBEDDING_MODEL_NAME
+        value: text-embedding-004
+      - key: EMBEDDING_DIMENSION
+        value: "384"
+      - key: GOOGLE_API_KEY
+        sync: false
       - key: EMBEDDING_BATCH_SIZE
-        value: "8"
-      - key: EMBEDDING_THREADS
-        value: "1"
+        value: "16"
       - key: MAX_BRANCHES_TO_ANALYZE
         value: "1"

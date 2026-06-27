@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
     supabase_service_role_key: str | None = None
     groq_api_key: str | None = None
+    google_api_key: str | None = None
     secret_key: str = "change-me-in-production"
 
     jwt_algorithm: str = "HS256"
@@ -37,6 +38,7 @@ class Settings(BaseSettings):
     github_token: str | None = None
 
     embedding_model_name: str = "BAAI/bge-small-en-v1.5"
+    embedding_provider: str = "local"
     embedding_dimension: int = 384
     embedding_batch_size: int = 32
     embedding_threads: int = 1
@@ -118,7 +120,13 @@ class Settings(BaseSettings):
     def effective_embedding_batch_size(self) -> int:
         if self.is_development:
             return self.embedding_batch_size
+        if self.embedding_provider == "google":
+            return min(self.embedding_batch_size, 32)
         return min(self.embedding_batch_size, 8)
+
+    @property
+    def effective_embedding_model_name(self) -> str:
+        return self.embedding_model_name
 
     @property
     def should_gc_between_embedding_batches(self) -> bool:
@@ -154,6 +162,9 @@ class Settings(BaseSettings):
 
         if not self.groq_api_key:
             raise ValueError("GROQ_API_KEY is required in production")
+
+        if self.embedding_provider == "google" and not self.google_api_key:
+            raise ValueError("GOOGLE_API_KEY is required when EMBEDDING_PROVIDER=google")
 
 
 @lru_cache

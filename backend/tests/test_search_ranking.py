@@ -72,7 +72,7 @@ async def search_fixture(tmp_path):
 
         mock_model = mock_fastembed_model()
         with patch(
-            "app.services.indexing.embedding_service.get_embedding_model",
+            "app.services.indexing.providers.local_embedding.get_embedding_model",
             return_value=mock_model,
         ):
             await chunk_embedding_repository.bulk_upsert(
@@ -135,7 +135,7 @@ async def test_semantic_search_returns_results(search_fixture):
 
     async with session_factory() as db:
         with patch(
-            "app.services.indexing.embedding_service.get_embedding_model",
+            "app.services.indexing.providers.local_embedding.get_embedding_model",
             return_value=mock_model,
         ):
             service = SearchService(db)
@@ -162,7 +162,7 @@ async def test_hybrid_search_combines_scores(search_fixture):
 
     async with session_factory() as db:
         with patch(
-            "app.services.indexing.embedding_service.get_embedding_model",
+            "app.services.indexing.providers.local_embedding.get_embedding_model",
             return_value=mock_model,
         ):
             service = SearchService(db)
@@ -188,7 +188,7 @@ async def test_retrieve_context_returns_full_content(search_fixture):
 
     async with session_factory() as db:
         with patch(
-            "app.services.indexing.embedding_service.get_embedding_model",
+            "app.services.indexing.providers.local_embedding.get_embedding_model",
             return_value=mock_model,
         ):
             service = SearchService(db)

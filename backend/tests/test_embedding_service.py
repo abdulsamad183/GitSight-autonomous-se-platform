@@ -4,13 +4,15 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
+from app.core.config import Settings
 from app.models.code_chunk import ChunkType, CodeChunk
 from app.services.indexing.embedding_service import EmbeddingService
+from app.services.indexing.providers.google_embedding import GoogleEmbeddingBackend
 
 
 @pytest.fixture(autouse=True)
-def reset_model_singleton():
-    import app.services.indexing.embedding_service as module
+def reset_local_model_singleton():
+    import app.services.indexing.providers.local_embedding as module
 
     module._model = None
     yield
@@ -56,7 +58,7 @@ def test_generate_embeddings_uses_batch_encode():
     mock_model = _mock_fastembed_model()
 
     with patch(
-        "app.services.indexing.embedding_service.get_embedding_model",
+        "app.services.indexing.providers.local_embedding.get_embedding_model",
         return_value=mock_model,
     ):
         service = EmbeddingService(db=MagicMock())
@@ -73,7 +75,7 @@ def test_generate_query_embedding_uses_query_embed():
     mock_model = _mock_fastembed_model()
 
     with patch(
-        "app.services.indexing.embedding_service.get_embedding_model",
+        "app.services.indexing.providers.local_embedding.get_embedding_model",
         return_value=mock_model,
     ):
         service = EmbeddingService(db=MagicMock())
@@ -81,6 +83,45 @@ def test_generate_query_embedding_uses_query_embed():
 
     mock_model.query_embed.assert_called_once_with(["search me"])
     assert result == [0.5, 0.6]
+
+
+def test_google_backend_embed_passages():
+    settings = Settings(
+        embedding_provider="google",
+        google_api_key="test-key",
+        embedding_model_name="text-embedding-004",
+        embedding_dimension=384,
+    )
+    backend = GoogleEmbeddingBackend(settings)
+
+    with patch.object(backend, "_post_with_retries") as mock_post:
+        mock_post.return_value = {"embeddings": [{"values": [0.1, 0.2]}, {"values": [0.3, 0.4]}]}
+        result = backend.embed_passages(["def a(): pass", "def b(): pass"])
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+    mock_post.assert_called_once()
+    payload = mock_post.call_args.args[1]
+    assert len(payload["requests"]) == 2
+    assert payload["requests"][0]["taskType"] == "RETRIEVAL_DOCUMENT"
+    assert payload["requests"][0]["outputDimensionality"] == 384
+
+
+def test_google_backend_embed_query():
+    settings = Settings(
+        embedding_provider="google",
+        google_api_key="test-key",
+        embedding_model_name="text-embedding-004",
+        embedding_dimension=384,
+    )
+    backend = GoogleEmbeddingBackend(settings)
+
+    with patch.object(backend, "_post_with_retries") as mock_post:
+        mock_post.return_value = {"embeddings": [{"values": [0.5] * 384}]}
+        result = backend.embed_query("find auth")
+
+    assert len(result) == 384
+    payload = mock_post.call_args.args[1]
+    assert payload["requests"][0]["taskType"] == "RETRIEVAL_QUERY"
 
 
 @pytest.mark.asyncio
@@ -91,7 +132,7 @@ async def test_embed_chunks_batches_db_writes():
 
     with (
         patch(
-            "app.services.indexing.embedding_service.get_embedding_model",
+            "app.services.indexing.providers.local_embedding.get_embedding_model",
             return_value=mock_model,
         ),
         patch(

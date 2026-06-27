@@ -136,7 +136,7 @@ The browser talks to the Vercel frontend at same-origin `/api/*`. Next.js rewrit
 CORS_ORIGINS=["https://your-app.vercel.app","https://your-service.onrender.com"]
 ```
 
-**Render plan note:** Embeddings use ONNX via `fastembed` (no PyTorch) with conservative batch/thread defaults in `infrastructure/render.yaml`. The free tier can work for light usage; use Starter or higher for reliable concurrent indexing.
+**Render plan note:** Set `EMBEDDING_PROVIDER=google` and `GOOGLE_API_KEY` so embeddings run via the Gemini API (no local model RAM). See `infrastructure/render.yaml`.
 
 ### Deploy steps
 
