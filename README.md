@@ -61,7 +61,7 @@ For more detail, see [docs/architecture.md](docs/architecture.md).
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/GitSight-autonomous-se-platform.git
+git clone https://github.com/abdulsamad183/GitSight-autonomous-se-platform.git
 cd GitSight-autonomous-se-platform
 ```
 
