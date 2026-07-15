@@ -69,6 +69,25 @@ def test_file_chunks_for_path_chunks_markdown_by_heading():
     assert drafts[0].repository_id == repository_id
 
 
+def test_file_chunks_for_path_chunks_json_as_text():
+    service = ChunkService(db=MagicMock())
+    repository_id = uuid4()
+    content = '{\n  "name": "gitsight",\n  "version": "0.1.0"\n}\n'
+    drafts = service._file_chunks_for_path(
+        file_path="package.json",
+        extension=".json",
+        content=content,
+        repository_id=repository_id,
+        branch_name="main",
+        head_commit_hash="abc123",
+    )
+    assert len(drafts) >= 1
+    assert drafts[0].file_path == "package.json"
+    assert drafts[0].chunk_source == "file"
+    assert '"name": "gitsight"' in drafts[0].content
+    assert drafts[0].repository_id == repository_id
+
+
 def test_create_chunks_only_new_files_skips_existing_paths():
     service = ChunkService(db=MagicMock())
     repository_id = uuid4()

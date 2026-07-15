@@ -1,4 +1,6 @@
 from app.utils.file_filter import (
+    CHUNKABLE_FILE_EXTENSIONS,
+    FILE_CHUNK_EXTENSIONS,
     detect_language,
     is_binary_content,
     is_parseable_file,
@@ -25,6 +27,7 @@ def test_detect_language():
     assert detect_language(".c") == "c"
     assert detect_language(".cpp") == "cpp"
     assert detect_language(".hpp") == "cpp"
+    assert detect_language(".json") == "json"
     assert detect_language(".md") == "markdown"
     assert detect_language(".mdx") == "markdown"
     assert detect_language(".rst") == "restructuredtext"
@@ -48,3 +51,11 @@ def test_is_parseable_file():
     assert is_parseable_file(".cpp", "cpp", False)
     assert not is_parseable_file(".py", "python", True)
     assert not is_parseable_file(".md", None, False)
+    assert not is_parseable_file(".json", "json", False)
+
+
+def test_json_is_file_chunkable_not_ast_parseable():
+    assert ".json" in FILE_CHUNK_EXTENSIONS
+    assert ".json" in CHUNKABLE_FILE_EXTENSIONS
+    assert detect_language(".json") == "json"
+    assert not is_parseable_file(".json", "json", False)

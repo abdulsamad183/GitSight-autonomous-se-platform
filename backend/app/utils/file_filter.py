@@ -23,6 +23,7 @@ LANGUAGE_BY_EXTENSION: dict[str, str] = {
     ".html": "html",
     ".htm": "html",
     ".css": "css",
+    ".json": "json",
     ".go": "go",
     ".c": "c",
     ".h": "c",
@@ -39,7 +40,7 @@ LANGUAGE_BY_EXTENSION: dict[str, str] = {
 
 PARSEABLE_LANGUAGES = {"python", "javascript", "typescript", "go", "c", "cpp"}
 
-FILE_CHUNK_EXTENSIONS = {".html", ".htm", ".css"}
+FILE_CHUNK_EXTENSIONS = {".html", ".htm", ".css", ".json"}
 DOCUMENT_CHUNK_EXTENSIONS = {".md", ".mdx", ".rst"}
 CHUNKABLE_FILE_EXTENSIONS = FILE_CHUNK_EXTENSIONS | DOCUMENT_CHUNK_EXTENSIONS
 
