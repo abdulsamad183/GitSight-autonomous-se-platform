@@ -18,6 +18,7 @@ class RepositoryStats:
     methods_count: int
     dependencies_count: int
     analysis_status: str
+    language_breakdown: dict[str, int]
 
 
 async def get_latest_job_status(db: AsyncSession, repository_id: UUID) -> str:
@@ -33,6 +34,21 @@ async def get_latest_job_status(db: AsyncSession, repository_id: UUID) -> str:
     if status == JobStatus.QUEUED:
         return "PENDING"
     return status.value.upper()
+
+
+async def get_language_breakdown_for_snapshot(
+    db: AsyncSession, snapshot_id: UUID
+) -> dict[str, int]:
+    result = await db.execute(
+        select(File.language, func.count())
+        .where(File.snapshot_id == snapshot_id)
+        .group_by(File.language)
+    )
+    breakdown: dict[str, int] = {}
+    for language, count in result.all():
+        key = language or "unknown"
+        breakdown[key] = int(count)
+    return dict(sorted(breakdown.items(), key=lambda item: (-item[1], item[0])))
 
 
 async def get_stats_for_snapshot(db: AsyncSession, snapshot_id: UUID) -> RepositoryStats:
@@ -59,6 +75,7 @@ async def get_stats_for_snapshot(db: AsyncSession, snapshot_id: UUID) -> Reposit
         .select_from(DependencyEdge)
         .where(DependencyEdge.snapshot_id == snapshot_id)
     )
+    language_breakdown = await get_language_breakdown_for_snapshot(db, snapshot_id)
 
     return RepositoryStats(
         files_count=files_count or 0,
@@ -67,4 +84,5 @@ async def get_stats_for_snapshot(db: AsyncSession, snapshot_id: UUID) -> Reposit
         methods_count=methods_count or 0,
         dependencies_count=dependencies_count or 0,
         analysis_status="",
+        language_breakdown=language_breakdown,
     )

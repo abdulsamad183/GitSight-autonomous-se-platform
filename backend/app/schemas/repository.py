@@ -65,6 +65,7 @@ class RepositorySummaryResponse(BaseModel):
     open_pull_requests: int = 0
     closed_pull_requests: int = 0
     merged_pull_requests: int = 0
+    language_breakdown: dict[str, int] = Field(default_factory=dict)
 
 
 class FileItem(BaseModel):

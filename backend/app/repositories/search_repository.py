@@ -20,10 +20,43 @@ class SearchRow:
     branch_name: str
 
 
-def _branch_clause(branch_name: str | None) -> tuple[str, dict]:
-    if branch_name is None:
-        return "", {}
-    return " AND c.branch_name = :branch_name", {"branch_name": branch_name}
+def _filter_clauses(
+    *,
+    branch_name: str | None = None,
+    file_path: str | None = None,
+    chunk_type: str | None = None,
+    language: str | None = None,
+) -> tuple[str, dict]:
+    clauses: list[str] = []
+    params: dict = {}
+
+    if branch_name is not None:
+        clauses.append(" AND c.branch_name = :branch_name")
+        params["branch_name"] = branch_name
+
+    if file_path is not None and file_path.strip():
+        clauses.append(" AND c.file_path LIKE :file_path_prefix")
+        params["file_path_prefix"] = f"{file_path.strip()}%"
+
+    if chunk_type is not None and chunk_type.strip():
+        clauses.append(" AND c.chunk_type::text = :chunk_type")
+        params["chunk_type"] = chunk_type.strip()
+
+    if language is not None and language.strip():
+        clauses.append("""
+          AND EXISTS (
+            SELECT 1
+            FROM files f
+            JOIN repository_snapshots rs ON rs.id = f.snapshot_id
+            WHERE f.repository_id = c.repository_id
+              AND f.relative_path = c.file_path
+              AND rs.branch = c.branch_name
+              AND lower(f.language) = lower(:language)
+          )
+            """)
+        params["language"] = language.strip()
+
+    return "".join(clauses), params
 
 
 async def keyword_search(
@@ -34,8 +67,16 @@ async def keyword_search(
     limit: int,
     offset: int,
     branch_name: str | None = None,
+    file_path: str | None = None,
+    chunk_type: str | None = None,
+    language: str | None = None,
 ) -> list[SearchRow]:
-    branch_sql, branch_params = _branch_clause(branch_name)
+    filter_sql, filter_params = _filter_clauses(
+        branch_name=branch_name,
+        file_path=file_path,
+        chunk_type=chunk_type,
+        language=language,
+    )
     sql = text(f"""
         SELECT
             c.id AS chunk_id,
@@ -61,7 +102,7 @@ async def keyword_search(
         FROM code_chunks c
         WHERE c.repository_id = :repository_id
           AND c.search_vector @@ plainto_tsquery('simple', :query)
-          {branch_sql}
+          {filter_sql}
         ORDER BY keyword_score DESC
         LIMIT :limit OFFSET :offset
         """)
@@ -70,7 +111,7 @@ async def keyword_search(
         "query": query,
         "limit": limit,
         "offset": offset,
-        **branch_params,
+        **filter_params,
     }
     result = await db.execute(sql, params)
     return [
@@ -97,16 +138,24 @@ async def keyword_search_count(
     repository_id: UUID,
     query: str,
     branch_name: str | None = None,
+    file_path: str | None = None,
+    chunk_type: str | None = None,
+    language: str | None = None,
 ) -> int:
-    branch_sql, branch_params = _branch_clause(branch_name)
+    filter_sql, filter_params = _filter_clauses(
+        branch_name=branch_name,
+        file_path=file_path,
+        chunk_type=chunk_type,
+        language=language,
+    )
     sql = text(f"""
         SELECT count(*) AS total
         FROM code_chunks c
         WHERE c.repository_id = :repository_id
           AND c.search_vector @@ plainto_tsquery('simple', :query)
-          {branch_sql}
+          {filter_sql}
         """)
-    params = {"repository_id": repository_id, "query": query, **branch_params}
+    params = {"repository_id": repository_id, "query": query, **filter_params}
     result = await db.execute(sql, params)
     return int(result.scalar_one())
 
@@ -120,8 +169,16 @@ async def semantic_search(
     offset: int,
     threshold: float,
     branch_name: str | None = None,
+    file_path: str | None = None,
+    chunk_type: str | None = None,
+    language: str | None = None,
 ) -> list[SearchRow]:
-    branch_sql, branch_params = _branch_clause(branch_name)
+    filter_sql, filter_params = _filter_clauses(
+        branch_name=branch_name,
+        file_path=file_path,
+        chunk_type=chunk_type,
+        language=language,
+    )
     vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
     sql = text(f"""
         SELECT
@@ -139,7 +196,7 @@ async def semantic_search(
         INNER JOIN chunk_embeddings e ON e.chunk_id = c.id
         WHERE c.repository_id = :repository_id
           AND (1 - (e.embedding <=> CAST(:query_vector AS vector))) >= :threshold
-          {branch_sql}
+          {filter_sql}
         ORDER BY e.embedding <=> CAST(:query_vector AS vector)
         LIMIT :limit OFFSET :offset
         """)
@@ -149,7 +206,7 @@ async def semantic_search(
         "threshold": threshold,
         "limit": limit,
         "offset": offset,
-        **branch_params,
+        **filter_params,
     }
     result = await db.execute(sql, params)
     return [
@@ -177,8 +234,16 @@ async def semantic_search_count(
     query_vector: list[float],
     threshold: float,
     branch_name: str | None = None,
+    file_path: str | None = None,
+    chunk_type: str | None = None,
+    language: str | None = None,
 ) -> int:
-    branch_sql, branch_params = _branch_clause(branch_name)
+    filter_sql, filter_params = _filter_clauses(
+        branch_name=branch_name,
+        file_path=file_path,
+        chunk_type=chunk_type,
+        language=language,
+    )
     vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
     sql = text(f"""
         SELECT count(*) AS total
@@ -186,13 +251,13 @@ async def semantic_search_count(
         INNER JOIN chunk_embeddings e ON e.chunk_id = c.id
         WHERE c.repository_id = :repository_id
           AND (1 - (e.embedding <=> CAST(:query_vector AS vector))) >= :threshold
-          {branch_sql}
+          {filter_sql}
         """)
     params = {
         "repository_id": repository_id,
         "query_vector": vector_literal,
         "threshold": threshold,
-        **branch_params,
+        **filter_params,
     }
     result = await db.execute(sql, params)
     return int(result.scalar_one())

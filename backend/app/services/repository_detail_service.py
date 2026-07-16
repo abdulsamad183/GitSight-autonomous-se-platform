@@ -173,6 +173,7 @@ async def _build_summary(
         open_pull_requests=pr_counts.open,
         closed_pull_requests=pr_counts.closed,
         merged_pull_requests=pr_counts.merged,
+        language_breakdown=stats.language_breakdown if stats else {},
     )
 
 

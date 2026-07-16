@@ -65,6 +65,9 @@ class SearchService:
         limit: int | None = None,
         offset: int = 0,
         branch: str | None = None,
+        file_path: str | None = None,
+        chunk_type: str | None = None,
+        language: str | None = None,
     ) -> list[SearchResult]:
         limit = limit or self.settings.search_default_limit
         rows = await search_repository.keyword_search(
@@ -74,6 +77,9 @@ class SearchService:
             limit=limit,
             offset=offset,
             branch_name=branch,
+            file_path=file_path,
+            chunk_type=chunk_type,
+            language=language,
         )
         return [
             self._row_to_result(
@@ -94,6 +100,9 @@ class SearchService:
         limit: int | None = None,
         offset: int = 0,
         branch: str | None = None,
+        file_path: str | None = None,
+        chunk_type: str | None = None,
+        language: str | None = None,
         threshold: float | None = None,
     ) -> list[SearchResult]:
         limit = limit or self.settings.search_default_limit
@@ -109,6 +118,9 @@ class SearchService:
             offset=offset,
             threshold=threshold,
             branch_name=branch,
+            file_path=file_path,
+            chunk_type=chunk_type,
+            language=language,
         )
         return [
             self._row_to_result(
@@ -181,6 +193,9 @@ class SearchService:
         limit: int | None = None,
         offset: int = 0,
         branch: str | None = None,
+        file_path: str | None = None,
+        chunk_type: str | None = None,
+        language: str | None = None,
     ) -> list[SearchResult]:
         limit = limit or self.settings.search_default_limit
         candidate_limit = limit * self.settings.search_candidate_multiplier
@@ -193,6 +208,9 @@ class SearchService:
             limit=candidate_limit,
             offset=0,
             branch_name=branch,
+            file_path=file_path,
+            chunk_type=chunk_type,
+            language=language,
         )
         semantic_rows = await search_repository.semantic_search(
             self.db,
@@ -202,6 +220,9 @@ class SearchService:
             offset=0,
             threshold=self.settings.search_similarity_threshold,
             branch_name=branch,
+            file_path=file_path,
+            chunk_type=chunk_type,
+            language=language,
         )
 
         merged = self._merge_hybrid_results(keyword_rows, semantic_rows, query)
@@ -216,26 +237,38 @@ class SearchService:
         limit: int | None = None,
         offset: int = 0,
         branch: str | None = None,
+        file_path: str | None = None,
+        chunk_type: str | None = None,
+        language: str | None = None,
     ) -> SearchResponse:
         if mode not in VALID_MODES:
             raise ValueError(f"Invalid search mode: {mode}")
 
         limit = min(limit or self.settings.search_default_limit, self.settings.search_max_limit)
         start = time.perf_counter()
+        filter_kwargs = {
+            "branch": branch,
+            "file_path": file_path,
+            "chunk_type": chunk_type,
+            "language": language,
+        }
 
         if mode == "keyword":
             results = await self.keyword_search(
-                repository_id, query, limit=limit, offset=offset, branch=branch
+                repository_id, query, limit=limit, offset=offset, **filter_kwargs
             )
             total = await search_repository.keyword_search_count(
                 self.db,
                 repository_id=repository_id,
                 query=query,
                 branch_name=branch,
+                file_path=file_path,
+                chunk_type=chunk_type,
+                language=language,
             )
         elif mode == "semantic":
             results = await self.semantic_search(
-                repository_id, query, limit=limit, offset=offset, branch=branch
+                repository_id, query, limit=limit, offset=offset, **filter_kwargs
             )
             query_vector = await self._embedding_service.generate_query_embedding(query)
             total = await search_repository.semantic_search_count(
@@ -244,10 +277,13 @@ class SearchService:
                 query_vector=query_vector,
                 threshold=self.settings.search_similarity_threshold,
                 branch_name=branch,
+                file_path=file_path,
+                chunk_type=chunk_type,
+                language=language,
             )
         else:
             results = await self.hybrid_search(
-                repository_id, query, limit=limit, offset=offset, branch=branch
+                repository_id, query, limit=limit, offset=offset, **filter_kwargs
             )
             # For hybrid, total is approximate from merged candidate pool
             total = len(results) if offset == 0 else len(results) + offset

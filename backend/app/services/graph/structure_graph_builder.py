@@ -149,6 +149,8 @@ class StructureGraphBuilder:
                 )
             )
 
+        file_language_by_id = {file.id: file.language for file in files}
+
         for symbol, file_path in classes:
             class_id = _class_node_id(symbol.id)
             method_count = len(methods_by_class.get(symbol.id, []))
@@ -159,6 +161,7 @@ class StructureGraphBuilder:
                     label=symbol.symbol_name,
                     metadata={
                         "file_path": file_path,
+                        "language": file_language_by_id.get(symbol.file_id),
                         "method_count": method_count,
                         "start_line": symbol.start_line,
                         "end_line": symbol.end_line,
@@ -184,6 +187,7 @@ class StructureGraphBuilder:
                         metadata={
                             "parent_class": symbol.symbol_name,
                             "file_path": method_file_path,
+                            "language": file_language_by_id.get(method.file_id),
                             "start_line": method.start_line,
                             "end_line": method.end_line,
                             "signature": method.signature,
