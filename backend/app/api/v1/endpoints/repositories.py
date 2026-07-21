@@ -13,7 +13,12 @@ from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunk import ChunkListResponse, ChunkResponse, IndexStatusResponse, ReindexResponse
 from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
-from app.schemas.graph import BlastRadiusResponse, GraphPathResponse, RepositoryGraphResponse
+from app.schemas.graph import (
+    BlastRadiusResponse,
+    GraphPathResponse,
+    ImportGraphSummaryResponse,
+    RepositoryGraphResponse,
+)
 from app.schemas.pr_review import PullRequestReviewResponse
 from app.schemas.repository import (
     AnalyzeRequest,
@@ -295,6 +300,27 @@ async def get_repository_graph(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
+@router.get("/{repository_id}/graph/import-summary", response_model=ImportGraphSummaryResponse)
+async def get_graph_import_summary(
+    repository_id: UUID,
+    branch: str | None = None,
+    edge_limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ImportGraphSummaryResponse:
+    try:
+        payload = await graph_query_service.import_graph_summary(
+            db,
+            repository_id=repository_id,
+            user_id=current_user.id,
+            branch=branch,
+            edge_limit=edge_limit,
+        )
+        return ImportGraphSummaryResponse(**payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
 @router.get("/{repository_id}/graph/blast-radius", response_model=BlastRadiusResponse)
 async def get_graph_blast_radius(
     repository_id: UUID,
@@ -328,6 +354,7 @@ async def get_graph_path(
     source_file: str,
     target_file: str,
     max_depth: int = 5,
+    bidirectional: bool = False,
     branch: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -341,6 +368,7 @@ async def get_graph_path(
             target_file=target_file,
             branch=branch,
             max_depth=max_depth,
+            bidirectional=bidirectional,
         )
         return GraphPathResponse(**payload)
     except NotFoundError as exc:

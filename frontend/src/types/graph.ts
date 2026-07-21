@@ -41,6 +41,8 @@ export interface BlastRadiusResponse {
   branch: string | null;
   nodes: BlastRadiusNode[];
   total: number;
+  message?: string | null;
+  suggested_direction?: "dependents" | "dependencies" | null;
 }
 
 export interface GraphPathResponse {
@@ -50,4 +52,21 @@ export interface GraphPathResponse {
   branch: string | null;
   paths: string[][];
   total_paths: number;
+  bidirectional?: boolean;
+  message?: string | null;
+}
+
+export interface ImportEdgeItem {
+  source_path: string;
+  target_path: string;
+  dependency_type: string;
+}
+
+export interface ImportGraphSummary {
+  branch: string | null;
+  edges: ImportEdgeItem[];
+  connected_files: string[];
+  source_files: string[];
+  target_files: string[];
+  total_edges: number;
 }

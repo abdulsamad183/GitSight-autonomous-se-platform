@@ -1,4 +1,9 @@
-import type { BlastRadiusResponse, GraphPathResponse, RepositoryGraph } from "@/types/graph";
+import type {
+  BlastRadiusResponse,
+  GraphPathResponse,
+  ImportGraphSummary,
+  RepositoryGraph,
+} from "@/types/graph";
 import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
 import type { PullRequestReviewResponse } from "@/types/pr-review";
@@ -87,6 +92,7 @@ export async function getGraphPath(
     source_file: string;
     target_file: string;
     max_depth?: number;
+    bidirectional?: boolean;
     branch?: string;
   },
 ): Promise<GraphPathResponse> {
@@ -94,9 +100,23 @@ export async function getGraphPath(
   searchParams.set("source_file", params.source_file);
   searchParams.set("target_file", params.target_file);
   if (params.max_depth !== undefined) searchParams.set("max_depth", String(params.max_depth));
+  if (params.bidirectional) searchParams.set("bidirectional", "true");
   if (params.branch) searchParams.set("branch", params.branch);
   return apiGet<GraphPathResponse>(
     `/api/v1/repositories/${repositoryId}/graph/path?${searchParams.toString()}`,
+  );
+}
+
+export async function getGraphImportSummary(
+  repositoryId: string,
+  params?: { branch?: string; edge_limit?: number },
+): Promise<ImportGraphSummary> {
+  const searchParams = new URLSearchParams();
+  if (params?.branch) searchParams.set("branch", params.branch);
+  if (params?.edge_limit !== undefined) searchParams.set("edge_limit", String(params.edge_limit));
+  const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  return apiGet<ImportGraphSummary>(
+    `/api/v1/repositories/${repositoryId}/graph/import-summary${query}`,
   );
 }
 

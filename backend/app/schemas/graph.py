@@ -46,6 +46,8 @@ class BlastRadiusResponse(BaseModel):
     branch: str | None = None
     nodes: list[BlastRadiusNode] = Field(default_factory=list)
     total: int = 0
+    message: str | None = None
+    suggested_direction: str | None = None
 
 
 class GraphPathResponse(BaseModel):
@@ -55,3 +57,20 @@ class GraphPathResponse(BaseModel):
     branch: str | None = None
     paths: list[list[str]] = Field(default_factory=list)
     total_paths: int = 0
+    bidirectional: bool = False
+    message: str | None = None
+
+
+class ImportEdgeItem(BaseModel):
+    source_path: str
+    target_path: str
+    dependency_type: str
+
+
+class ImportGraphSummaryResponse(BaseModel):
+    branch: str | None = None
+    edges: list[ImportEdgeItem] = Field(default_factory=list)
+    connected_files: list[str] = Field(default_factory=list)
+    source_files: list[str] = Field(default_factory=list)
+    target_files: list[str] = Field(default_factory=list)
+    total_edges: int = 0

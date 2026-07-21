@@ -221,19 +221,56 @@ async def blast_radius(
     if repository is None:
         raise NotFoundError("Repository not found")
 
+    start = file_path.strip()
     edges = await get_import_edges(db, repository_id=repository_id, user_id=user_id, branch=branch)
     adjacency = _build_adjacency(edges)
-    walk_adj = _reverse_adjacency(adjacency) if direction == "dependents" else adjacency
-    nodes = compute_blast_radius(walk_adj, start_file=file_path.strip(), max_depth=depth)
+    reverse_adj = _reverse_adjacency(adjacency)
+    sources = set(adjacency.keys())
+    targets = set(reverse_adj.keys())
+    connected = sources | targets
+
+    walk_adj = reverse_adj if direction == "dependents" else adjacency
+    nodes = compute_blast_radius(walk_adj, start_file=start, max_depth=depth)
     snapshot, _, selected_branch = await _resolve_snapshot(db, repository, branch)
 
+    message: str | None = None
+    suggested_direction: str | None = None
+    if not edges:
+        message = "No import dependency edges are indexed for this branch."
+    elif start not in connected:
+        message = (
+            "This file path is not part of any indexed import edge. "
+            "Pick a connected file from the suggestions."
+        )
+    elif not nodes:
+        if direction == "dependents":
+            if start in sources and start not in targets:
+                message = (
+                    "Nothing imports this file. Try direction Dependencies "
+                    "(what this file imports)."
+                )
+                suggested_direction = "dependencies"
+            else:
+                message = "No dependents found within the selected depth."
+        else:
+            if start in targets and start not in sources:
+                message = (
+                    "This file does not import other indexed files. "
+                    "Try direction Dependents (who imports this)."
+                )
+                suggested_direction = "dependents"
+            else:
+                message = "No dependencies found within the selected depth."
+
     return {
-        "file_path": file_path.strip(),
+        "file_path": start,
         "direction": direction,
         "max_depth": depth,
         "branch": selected_branch if snapshot else branch,
         "nodes": [{"file_path": path, "hop": hop} for path, hop in nodes],
         "total": len(nodes),
+        "message": message,
+        "suggested_direction": suggested_direction,
     }
 
 
@@ -267,6 +304,7 @@ async def find_path(
     target_file: str,
     branch: str | None = None,
     max_depth: int | None = None,
+    bidirectional: bool = False,
 ) -> dict:
     if not source_file or not source_file.strip():
         raise ValidationError("source_file is required")
@@ -278,22 +316,85 @@ async def find_path(
     if repository is None:
         raise NotFoundError("Repository not found")
 
-    paths = await trace_path(
-        db,
-        repository_id=repository_id,
-        user_id=user_id,
-        source_file=source_file.strip(),
-        target_file=target_file.strip(),
-        branch=branch,
+    source = source_file.strip()
+    target = target_file.strip()
+    edges = await get_import_edges(db, repository_id=repository_id, user_id=user_id, branch=branch)
+    adjacency = _build_adjacency(edges)
+    paths = find_import_paths(
+        adjacency,
+        source_file=source,
+        target_file=target,
         max_depth=depth,
+        limit=MAX_PATHS,
     )
+    if bidirectional and not paths:
+        reverse_paths = find_import_paths(
+            adjacency,
+            source_file=target,
+            target_file=source,
+            max_depth=depth,
+            limit=MAX_PATHS,
+        )
+        paths = [list(reversed(path)) for path in reverse_paths]
+
     snapshot, _, selected_branch = await _resolve_snapshot(db, repository, branch)
 
+    message: str | None = None
+    if not edges:
+        message = "No import dependency edges are indexed for this branch."
+    elif not paths:
+        connected = set(adjacency.keys()) | set(_reverse_adjacency(adjacency).keys())
+        if source not in connected or target not in connected:
+            message = (
+                "One or both files are not in the import graph. "
+                "Pick connected files from the suggestions."
+            )
+        elif bidirectional:
+            message = "No import path found in either direction within the depth limit."
+        else:
+            message = (
+                'No import path in this direction. Enable "Also search reverse" '
+                "or swap source and target."
+            )
+
     return {
-        "source_file": source_file.strip(),
-        "target_file": target_file.strip(),
+        "source_file": source,
+        "target_file": target,
         "max_depth": depth,
         "branch": selected_branch if snapshot else branch,
         "paths": paths,
         "total_paths": len(paths),
+        "bidirectional": bidirectional,
+        "message": message,
+    }
+
+
+async def import_graph_summary(
+    db: AsyncSession,
+    *,
+    repository_id: UUID,
+    user_id: UUID,
+    branch: str | None = None,
+    edge_limit: int = 20,
+) -> dict:
+    repository = await repository_repository.get_by_id_for_user(db, repository_id, user_id)
+    if repository is None:
+        raise NotFoundError("Repository not found")
+
+    limit = max(1, min(int(edge_limit or 20), 100))
+    edges = await get_import_edges(db, repository_id=repository_id, user_id=user_id, branch=branch)
+    adjacency = _build_adjacency(edges)
+    reverse_adj = _reverse_adjacency(adjacency)
+    source_files = sorted(adjacency.keys())
+    target_files = sorted(reverse_adj.keys())
+    connected_files = sorted(set(source_files) | set(target_files))
+    snapshot, _, selected_branch = await _resolve_snapshot(db, repository, branch)
+
+    return {
+        "branch": selected_branch if snapshot else branch,
+        "edges": edges[:limit],
+        "connected_files": connected_files,
+        "source_files": source_files,
+        "target_files": target_files,
+        "total_edges": len(edges),
     }
