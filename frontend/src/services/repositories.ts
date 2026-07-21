@@ -1,5 +1,4 @@
-import { ApiError, apiDelete, apiGet, apiPost, getApiBaseUrl, parseErrorMessage } from "@/lib/api-client";
-import type { RepositoryGraph } from "@/types/graph";
+import type { BlastRadiusResponse, GraphPathResponse, RepositoryGraph } from "@/types/graph";
 import type { ChatRequest, ChatResponse, ChatSource, ChatStreamEvent } from "@/types/chat";
 import type { SearchParams, SearchResponse, ChunkDetail } from "@/types/search";
 import type { PullRequestReviewResponse } from "@/types/pr-review";
@@ -17,6 +16,7 @@ import type {
   RepositoryListItem,
   RepositorySummary,
 } from "@/types/repository";
+import { ApiError, apiDelete, apiGet, apiPost, getApiBaseUrl, parseErrorMessage } from "@/lib/api-client";
 
 export async function listRepositories(): Promise<RepositoryListItem[]> {
   return apiGet<RepositoryListItem[]>("/api/v1/repositories");
@@ -60,6 +60,44 @@ export async function getRepositoryGraph(
   if (graphType !== "structure") params.set("type", graphType);
   const query = params.toString() ? `?${params.toString()}` : "";
   return apiGet<RepositoryGraph>(`/api/v1/repositories/${repositoryId}/graph${query}`);
+}
+
+export async function getGraphBlastRadius(
+  repositoryId: string,
+  params: {
+    file_path: string;
+    direction?: "dependents" | "dependencies";
+    max_depth?: number;
+    branch?: string;
+  },
+): Promise<BlastRadiusResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("file_path", params.file_path);
+  if (params.direction) searchParams.set("direction", params.direction);
+  if (params.max_depth !== undefined) searchParams.set("max_depth", String(params.max_depth));
+  if (params.branch) searchParams.set("branch", params.branch);
+  return apiGet<BlastRadiusResponse>(
+    `/api/v1/repositories/${repositoryId}/graph/blast-radius?${searchParams.toString()}`,
+  );
+}
+
+export async function getGraphPath(
+  repositoryId: string,
+  params: {
+    source_file: string;
+    target_file: string;
+    max_depth?: number;
+    branch?: string;
+  },
+): Promise<GraphPathResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set("source_file", params.source_file);
+  searchParams.set("target_file", params.target_file);
+  if (params.max_depth !== undefined) searchParams.set("max_depth", String(params.max_depth));
+  if (params.branch) searchParams.set("branch", params.branch);
+  return apiGet<GraphPathResponse>(
+    `/api/v1/repositories/${repositoryId}/graph/path?${searchParams.toString()}`,
+  );
 }
 
 export async function deleteRepository(repositoryId: string): Promise<void> {

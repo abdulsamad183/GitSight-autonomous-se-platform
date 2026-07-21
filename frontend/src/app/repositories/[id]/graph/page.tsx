@@ -2,26 +2,35 @@
 
 import { Loader2 } from "lucide-react";
 
+import { GraphImpactTools } from "@/components/graph-impact-tools";
 import { RepositoryStructureGraph } from "@/components/repository-structure-graph";
 import { useRepositoryWorkspace } from "@/components/repository-workspace-context";
 import { useRepositoryGraph } from "@/hooks/use-repository-data";
 
 export default function RepositoryGraphPage() {
-  const { repositoryId, selectedBranch } = useRepositoryWorkspace();
+  const { repositoryId, selectedBranch, detail } = useRepositoryWorkspace();
   const graphQuery = useRepositoryGraph(repositoryId, selectedBranch);
   const graph = graphQuery.data;
 
   const branchLoading = graphQuery.isFetching && Boolean(graph);
   const loadError = graphQuery.error instanceof Error ? graphQuery.error.message : null;
+  const filePaths =
+    detail && "files" in detail ? detail.files.map((file) => file.relative_path) : [];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="shrink-0">
         <h1 className="text-xl font-semibold">Structure Graph</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Interactive dependency and structure visualization.
+          Interactive structure visualization plus blast radius and path finder tools.
         </p>
       </div>
+
+      <GraphImpactTools
+        repositoryId={repositoryId}
+        branch={selectedBranch}
+        filePaths={filePaths}
+      />
 
       {graph?.empty_state && (
         <div className="shrink-0 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">

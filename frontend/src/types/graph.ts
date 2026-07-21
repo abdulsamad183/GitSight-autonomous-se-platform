@@ -28,3 +28,26 @@ export interface RepositoryGraph {
   stats: GraphStats;
   empty_state: string | null;
 }
+
+export interface BlastRadiusNode {
+  file_path: string;
+  hop: number;
+}
+
+export interface BlastRadiusResponse {
+  file_path: string;
+  direction: "dependents" | "dependencies";
+  max_depth: number;
+  branch: string | null;
+  nodes: BlastRadiusNode[];
+  total: number;
+}
+
+export interface GraphPathResponse {
+  source_file: string;
+  target_file: string;
+  max_depth: number;
+  branch: string | null;
+  paths: string[][];
+  total_paths: number;
+}

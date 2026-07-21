@@ -13,7 +13,7 @@ from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunk import ChunkListResponse, ChunkResponse, IndexStatusResponse, ReindexResponse
 from app.schemas.documentation import DocumentationListResponse, DocumentationResponse
-from app.schemas.graph import RepositoryGraphResponse
+from app.schemas.graph import BlastRadiusResponse, GraphPathResponse, RepositoryGraphResponse
 from app.schemas.pr_review import PullRequestReviewResponse
 from app.schemas.repository import (
     AnalyzeRequest,
@@ -44,7 +44,7 @@ from app.services.exceptions import (
     ToolPlannerError,
     ValidationError,
 )
-from app.services.graph import repository_graph_service
+from app.services.graph import graph_query_service, repository_graph_service
 from app.services.indexing.chunk_service import ChunkService
 from app.services.pr_review.service import PullRequestReviewService
 from app.services.search_service import SearchService
@@ -289,6 +289,60 @@ async def get_repository_graph(
             branch=branch,
             graph_type=type,
         )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/graph/blast-radius", response_model=BlastRadiusResponse)
+async def get_graph_blast_radius(
+    repository_id: UUID,
+    file_path: str,
+    direction: str = "dependents",
+    max_depth: int = 3,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> BlastRadiusResponse:
+    try:
+        payload = await graph_query_service.blast_radius(
+            db,
+            repository_id=repository_id,
+            user_id=current_user.id,
+            file_path=file_path,
+            branch=branch,
+            max_depth=max_depth,
+            direction=direction,
+        )
+        return BlastRadiusResponse(**payload)
+    except NotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/{repository_id}/graph/path", response_model=GraphPathResponse)
+async def get_graph_path(
+    repository_id: UUID,
+    source_file: str,
+    target_file: str,
+    max_depth: int = 5,
+    branch: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> GraphPathResponse:
+    try:
+        payload = await graph_query_service.find_path(
+            db,
+            repository_id=repository_id,
+            user_id=current_user.id,
+            source_file=source_file,
+            target_file=target_file,
+            branch=branch,
+            max_depth=max_depth,
+        )
+        return GraphPathResponse(**payload)
     except NotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValidationError as exc:

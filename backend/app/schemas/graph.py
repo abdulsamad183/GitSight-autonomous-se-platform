@@ -1,6 +1,6 @@
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 GraphNodeType = Literal["repository", "file", "class", "method"]
 
@@ -32,3 +32,26 @@ class RepositoryGraphResponse(BaseModel):
     edges: list[GraphEdge]
     stats: GraphStats
     empty_state: str | None = None
+
+
+class BlastRadiusNode(BaseModel):
+    file_path: str
+    hop: int
+
+
+class BlastRadiusResponse(BaseModel):
+    file_path: str
+    direction: str
+    max_depth: int
+    branch: str | None = None
+    nodes: list[BlastRadiusNode] = Field(default_factory=list)
+    total: int = 0
+
+
+class GraphPathResponse(BaseModel):
+    source_file: str
+    target_file: str
+    max_depth: int
+    branch: str | None = None
+    paths: list[list[str]] = Field(default_factory=list)
+    total_paths: int = 0
