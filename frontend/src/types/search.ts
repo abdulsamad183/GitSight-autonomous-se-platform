@@ -30,6 +30,9 @@ export interface SearchParams {
   limit?: number;
   offset?: number;
   branch?: string;
+  file_path?: string;
+  chunk_type?: string;
+  language?: string;
 }
 
 export interface ChunkDetail {

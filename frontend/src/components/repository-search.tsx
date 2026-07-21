@@ -15,6 +15,19 @@ const MODE_OPTIONS: { value: SearchMode; label: string }[] = [
   { value: "semantic", label: "Semantic" },
 ];
 
+const CHUNK_TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "function", label: "Function" },
+  { value: "method", label: "Method" },
+  { value: "class", label: "Class" },
+  { value: "interface", label: "Interface" },
+  { value: "enum", label: "Enum" },
+  { value: "module", label: "Module" },
+  { value: "file", label: "File" },
+  { value: "section", label: "Section" },
+  { value: "diff_hunk", label: "Diff hunk" },
+] as const;
+
 /** Visible rows in the results viewport; API fetches this many per page. */
 const RESULTS_PAGE_SIZE = 5;
 /** Approximate height of one result row for the 5-item scroll viewport. */
@@ -45,6 +58,9 @@ interface RepositorySearchProps {
 export function RepositorySearch({ repositoryId, branch }: RepositorySearchProps) {
   const [mode, setMode] = useState<SearchMode>("hybrid");
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [filePath, setFilePath] = useState("");
+  const [chunkType, setChunkType] = useState("");
+  const [language, setLanguage] = useState("");
 
   const {
     query,
@@ -59,10 +75,22 @@ export function RepositorySearch({ repositoryId, branch }: RepositorySearchProps
     clear,
     hasMore,
     recentSearches,
-  } = useRepositorySearch({ repositoryId, branch, mode, limit: RESULTS_PAGE_SIZE });
+  } = useRepositorySearch({
+    repositoryId,
+    branch,
+    mode,
+    limit: RESULTS_PAGE_SIZE,
+    filters: { filePath, chunkType, language },
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") search();
+  };
+
+  const clearFilters = () => {
+    setFilePath("");
+    setChunkType("");
+    setLanguage("");
   };
 
   return (
@@ -112,6 +140,40 @@ export function RepositorySearch({ repositoryId, branch }: RepositorySearchProps
           {loading ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
           Search
         </Button>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Input
+          value={filePath}
+          onChange={(e) => setFilePath(e.target.value)}
+          placeholder="Path prefix (e.g. src/)"
+          aria-label="Filter by file path"
+        />
+        <select
+          value={chunkType}
+          onChange={(e) => setChunkType(e.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+          aria-label="Filter by chunk type"
+        >
+          {CHUNK_TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-2">
+          <Input
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            placeholder="Language (e.g. python)"
+            aria-label="Filter by language"
+          />
+          {(filePath || chunkType || language) && (
+            <Button type="button" variant="outline" onClick={clearFilters}>
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {recentSearches.length > 0 && !query && (

@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.file_distribution import FileDistributionResponse
+
 
 class AnalyzeRequest(BaseModel):
     github_url: str = Field(..., min_length=1, max_length=512)
@@ -121,6 +123,7 @@ class RepositoryDetailResponse(RepositorySummaryResponse):
     files: list[FileItem] = []
     symbols: list[SymbolItem] = []
     dependencies: list[DependencyItem] = []
+    file_distribution: FileDistributionResponse | None = None
 
 
 class DeleteAllResponse(BaseModel):

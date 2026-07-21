@@ -81,6 +81,7 @@ interface RepositoryStatsGridProps {
   total_pull_requests: number;
   open_pull_requests: number;
   merged_pull_requests: number;
+  language_breakdown?: Record<string, number>;
 }
 
 export function RepositoryMetricsRibbon(props: RepositoryStatsGridProps) {
@@ -93,17 +94,35 @@ export function RepositoryMetricsRibbon(props: RepositoryStatsGridProps) {
     { label: "Open PRs", value: props.open_pull_requests },
   ];
 
+  const languages = Object.entries(props.language_breakdown ?? {});
+
   return (
-    <div className="flex flex-wrap gap-2 rounded-xl border bg-card p-3 shadow-sm">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="flex min-w-[100px] flex-1 items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2"
-        >
-          <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
-          <span className="text-lg font-semibold tabular-nums">{item.value}</span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border bg-card p-3 shadow-sm">
+        {items.map((item) => (
+          <div
+            key={item.label}
+            className="flex min-w-[100px] flex-1 items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2"
+          >
+            <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
+            <span className="text-lg font-semibold tabular-nums">{item.value}</span>
+          </div>
+        ))}
+      </div>
+      {languages.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-sm">
+          <span className="text-xs font-medium text-muted-foreground">Languages</span>
+          {languages.map(([language, count]) => (
+            <span
+              key={language}
+              className="rounded-full bg-muted/60 px-2.5 py-1 text-xs font-medium tabular-nums"
+            >
+              {language}
+              <span className="ml-1 text-muted-foreground">{count}</span>
+            </span>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

@@ -9,6 +9,12 @@ import type { SearchMode, SearchResult } from "@/types/search";
 const DEBOUNCE_MS = 400;
 const MAX_RECENT = 5;
 
+export interface SearchFilters {
+  filePath: string;
+  chunkType: string;
+  language: string;
+}
+
 function loadRecentSearches(): string[] {
   if (typeof window === "undefined") return [];
   try {
@@ -24,6 +30,7 @@ interface UseRepositorySearchOptions {
   branch?: string | null;
   mode?: SearchMode;
   limit?: number;
+  filters?: SearchFilters;
 }
 
 export function useRepositorySearch({
@@ -31,6 +38,7 @@ export function useRepositorySearch({
   branch,
   mode = "hybrid",
   limit = 20,
+  filters,
 }: UseRepositorySearchOptions) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -42,6 +50,10 @@ export function useRepositorySearch({
   const [recentSearches, setRecentSearches] = useState<string[]>(loadRecentSearches);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filePath = filters?.filePath?.trim() || undefined;
+  const chunkType = filters?.chunkType?.trim() || undefined;
+  const language = filters?.language?.trim() || undefined;
 
   const saveRecentSearch = useCallback((q: string) => {
     setRecentSearches((prev) => {
@@ -76,6 +88,9 @@ export function useRepositorySearch({
           limit,
           offset: searchOffset,
           branch: branch ?? undefined,
+          file_path: filePath,
+          chunk_type: chunkType,
+          language,
         });
 
         if (controller.signal.aborted) return;
@@ -93,7 +108,7 @@ export function useRepositorySearch({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [repositoryId, mode, limit, branch, saveRecentSearch],
+    [repositoryId, mode, limit, branch, filePath, chunkType, language, saveRecentSearch],
   );
 
   const search = useCallback(
@@ -132,7 +147,7 @@ export function useRepositorySearch({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, mode, branch, runSearch]);
+  }, [query, mode, branch, filePath, chunkType, language, runSearch]);
 
   const trimmedQuery = query.trim();
   const visibleResults = trimmedQuery ? results : [];

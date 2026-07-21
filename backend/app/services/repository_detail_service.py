@@ -25,6 +25,7 @@ from app.schemas.repository import (
 )
 from app.services import branch_query_service
 from app.services.exceptions import NotFoundError
+from app.services.file_distribution_service import FileDistributionInput, compute_file_distribution
 
 
 async def get_repository_or_raise(db: AsyncSession, *, repository_id: UUID, user_id: UUID):
@@ -330,6 +331,22 @@ async def get_repository_detail(
         files=files,
         symbols=symbols,
         dependencies=dependencies,
+        file_distribution=(
+            compute_file_distribution(
+                [
+                    FileDistributionInput(
+                        relative_path=file.relative_path,
+                        extension=file.extension,
+                        language=file.language,
+                        size_bytes=file.size_bytes,
+                        is_binary=file.is_binary,
+                    )
+                    for file in files
+                ]
+            )
+            if files
+            else None
+        ),
     )
 
 

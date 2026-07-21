@@ -80,6 +80,9 @@ export async function searchRepository(
   if (params.limit !== undefined) searchParams.set("limit", String(params.limit));
   if (params.offset !== undefined) searchParams.set("offset", String(params.offset));
   if (params.branch) searchParams.set("branch", params.branch);
+  if (params.file_path) searchParams.set("file_path", params.file_path);
+  if (params.chunk_type) searchParams.set("chunk_type", params.chunk_type);
+  if (params.language) searchParams.set("language", params.language);
   return apiGet<SearchResponse>(
     `/api/v1/repositories/${repositoryId}/search?${searchParams.toString()}`,
   );

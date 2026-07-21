@@ -17,6 +17,7 @@ import {
   getStructureEdgeColor,
   structureEdgeTypes,
 } from "@/components/graph-structure-edge";
+import { filterGraphByLanguage, listGraphLanguages } from "@/lib/graph-language-filter";
 import { layoutStructureGraph } from "@/lib/graph-layout";
 import type { RepositoryGraph } from "@/types/graph";
 
@@ -85,10 +86,17 @@ interface RepositoryStructureGraphProps {
 
 export function RepositoryStructureGraph({ graph, branch }: RepositoryStructureGraphProps) {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [languageFilter, setLanguageFilter] = useState("");
+
+  const languages = useMemo(() => listGraphLanguages(graph), [graph]);
+  const filteredGraph = useMemo(
+    () => filterGraphByLanguage(graph, languageFilter || null),
+    [graph, languageFilter],
+  );
 
   const { nodes, edges } = useMemo(
-    () => toFlowElements(graph, branch, hoveredNodeId),
-    [graph, branch, hoveredNodeId],
+    () => toFlowElements(filteredGraph, branch, hoveredNodeId),
+    [filteredGraph, branch, hoveredNodeId],
   );
 
   const onNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
@@ -100,9 +108,29 @@ export function RepositoryStructureGraph({ graph, branch }: RepositoryStructureG
   }, []);
 
   return (
-    <div className="h-full w-full [&_.react-flow__edges]:!z-[1] [&_.react-flow__nodes]:!z-[10] [&_.react-flow__node]:!overflow-visible">
+    <div className="relative h-full w-full [&_.react-flow__edges]:!z-[1] [&_.react-flow__nodes]:!z-[10] [&_.react-flow__node]:!overflow-visible">
+      {languages.length > 0 && (
+        <div className="absolute left-3 top-3 z-20 flex items-center gap-2 rounded-lg border bg-background/95 px-2 py-1.5 shadow-sm">
+          <label htmlFor="graph-language-filter" className="text-xs text-muted-foreground">
+            Language
+          </label>
+          <select
+            id="graph-language-filter"
+            value={languageFilter}
+            onChange={(event) => setLanguageFilter(event.target.value)}
+            className="h-8 rounded-md border bg-background px-2 text-sm"
+          >
+            <option value="">All</option>
+            {languages.map((language) => (
+              <option key={language} value={language}>
+                {language}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <ReactFlow
-        key={graph.branch ?? "default"}
+        key={`${graph.branch ?? "default"}-${languageFilter || "all"}`}
         nodes={nodes}
         edges={edges}
         nodeTypes={structureNodeTypes}

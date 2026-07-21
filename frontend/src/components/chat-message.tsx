@@ -1,6 +1,7 @@
 "use client";
 
-import type { HTMLAttributes, ReactNode } from "react";
+import { Check, Copy, Download } from "lucide-react";
+import { useCallback, useState, type HTMLAttributes, type ReactNode } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -69,6 +70,27 @@ const assistantComponents: Components = {
 
 export function ChatMessageBubble({ role, content }: ChatMessageProps) {
   const isUser = role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setCopied(false);
+    }
+  }, [content]);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "gitsight-chat-response.md";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [content]);
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -82,11 +104,35 @@ export function ChatMessageBubble({ role, content }: ChatMessageProps) {
         {isUser ? (
           <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
         ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantComponents}>
-              {content}
-            </ReactMarkdown>
-          </div>
+          <>
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={assistantComponents}>
+                {content}
+              </ReactMarkdown>
+            </div>
+            {content.trim() && (
+              <div className="mt-3 flex items-center gap-2 border-t pt-2">
+                <button
+                  type="button"
+                  onClick={() => void handleCopy()}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Copy assistant response"
+                >
+                  {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Download assistant response"
+                >
+                  <Download className="size-3.5" />
+                  Download
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

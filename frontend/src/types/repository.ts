@@ -40,6 +40,7 @@ export interface RepositorySummary {
   open_pull_requests: number;
   closed_pull_requests: number;
   merged_pull_requests: number;
+  language_breakdown?: Record<string, number>;
 }
 
 export interface RepositoryListItem {
@@ -86,6 +87,32 @@ export interface DependencyItem {
   dependency_type: string;
 }
 
+export interface LargestFileItem {
+  relative_path: string;
+  size_bytes: number;
+  language: string | null;
+  extension: string | null;
+  is_binary: boolean;
+}
+
+export interface FolderSizeItem {
+  folder_path: string;
+  file_count: number;
+  total_size_bytes: number;
+}
+
+export interface FileDistribution {
+  total_files: number;
+  text_files: number;
+  binary_files: number;
+  total_size_bytes: number;
+  language_breakdown: Record<string, number>;
+  language_percentages: Record<string, number>;
+  extension_breakdown: Record<string, number>;
+  largest_files: LargestFileItem[];
+  largest_folders: FolderSizeItem[];
+}
+
 export interface PullRequestListItem {
   id: string;
   number: number;
@@ -111,4 +138,5 @@ export interface RepositoryDetail extends RepositorySummary {
   files: FileItem[];
   symbols: SymbolItem[];
   dependencies: DependencyItem[];
+  file_distribution: FileDistribution | null;
 }

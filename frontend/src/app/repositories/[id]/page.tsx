@@ -1,6 +1,7 @@
 "use client";
 
 import { RepositoryDetailTabs } from "@/components/repository-detail-tabs";
+import { RepositoryFileDistribution } from "@/components/repository-file-distribution";
 import { RepositoryMetricsRibbon } from "@/components/repository-stats";
 import { useRepositoryWorkspace } from "@/components/repository-workspace-context";
 
@@ -22,7 +23,12 @@ export default function RepositoryDetailPage() {
         total_pull_requests={detail.total_pull_requests}
         open_pull_requests={detail.open_pull_requests}
         merged_pull_requests={detail.merged_pull_requests}
+        language_breakdown={detail.language_breakdown}
       />
+
+      {detail.file_distribution && (
+        <RepositoryFileDistribution distribution={detail.file_distribution} />
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col rounded-xl border bg-card shadow-sm">
         <div className="border-b px-4 py-3">
