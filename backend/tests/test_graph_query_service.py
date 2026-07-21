@@ -1,10 +1,10 @@
 from app.services.exceptions import ValidationError
 from app.services.graph.graph_query_service import (
-    compute_blast_radius,
-    find_import_paths,
     _build_adjacency,
     _clamp_depth,
     _reverse_adjacency,
+    compute_blast_radius,
+    find_import_paths,
 )
 
 
