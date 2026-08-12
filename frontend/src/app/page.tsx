@@ -1,6 +1,7 @@
 import { Bot, Network, Search } from "lucide-react";
 
 import { GitSightLogo } from "@/components/gitsight-logo";
+import { HomeColdStartNotice } from "@/components/home-cold-start-notice";
 import { HomeCTA, HomeNav } from "@/components/home-cta";
 import { HomeInfoNotes } from "@/components/home-info-notes";
 
@@ -36,6 +37,8 @@ export default function Home() {
         </p>
 
         <HomeCTA className="mt-8 justify-center" />
+
+        <HomeColdStartNotice />
 
         <HomeInfoNotes />
 

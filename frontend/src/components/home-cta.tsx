@@ -31,8 +31,9 @@ export function HomeCTA({ className, size = "default" }: HomeCTAProps) {
             heightClass,
             "pointer-events-none opacity-50",
           )}
+          aria-busy="true"
         >
-          Loading...
+          Waking server…
         </span>
       </div>
     );
