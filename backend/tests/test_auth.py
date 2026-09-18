@@ -60,6 +60,21 @@ async def test_login_invalid_credentials(db_client, register_payload):
 
 
 @pytest.mark.asyncio
+async def test_admin_login_seeds_configured_account(db_client):
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    response = await db_client.post(
+        LOGIN_URL,
+        json={"email": settings.admin_email, "password": settings.admin_password},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == settings.admin_email
+    assert data["role"] == "admin"
+
+
+@pytest.mark.asyncio
 async def test_me_authenticated(db_client, register_payload):
     register_response = await db_client.post(REGISTER_URL, json=register_payload)
     cookies = register_response.cookies
