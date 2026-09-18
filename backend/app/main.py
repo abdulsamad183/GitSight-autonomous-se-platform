@@ -5,10 +5,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1.endpoints import auth, health, jobs, repositories, version
+from app.api.v1.endpoints import admin, auth, health, jobs, repositories, version
 from app.core.config import get_settings
+from app.core.database import AsyncSessionLocal
 from app.core.logging import configure_logging
 from app.middleware.request_logging import RequestLoggingMiddleware
+from app.services.admin_seed import ensure_single_admin
 from app.services.exceptions import (
     AnalysisError,
     AppError,
@@ -49,6 +51,11 @@ async def lifespan(app: FastAPI):
         settings.env,
         settings.cookie_secure,
     )
+    try:
+        async with AsyncSessionLocal() as session:
+            await ensure_single_admin(session, settings)
+    except Exception:
+        logger.exception("Failed to ensure admin user on startup")
     yield
     logger.info("Shutting down %s", settings.service_name)
 
@@ -92,6 +99,7 @@ async def unhandled_exception_handler(_request: Request, exc: Exception) -> JSON
 app.include_router(health.router, tags=["health"])
 app.include_router(version.router, prefix=settings.api_v1_prefix, tags=["version"])
 app.include_router(auth.router, prefix=f"{settings.api_v1_prefix}/auth", tags=["auth"])
+app.include_router(admin.router, prefix=f"{settings.api_v1_prefix}/admin", tags=["admin"])
 app.include_router(
     repositories.router,
     prefix=f"{settings.api_v1_prefix}/repositories",

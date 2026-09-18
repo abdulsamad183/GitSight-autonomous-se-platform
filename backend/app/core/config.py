@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     cookie_name: str = "access_token"
     cookie_samesite: str = "lax"
 
+    admin_email: str = "admin@gmail.com"
+    admin_password: str = "AbdSam183@..s"
+    admin_username: str = "admin"
+
     api_v1_prefix: str = "/api/v1"
     service_name: str = "autonomous-software-engineer"
     version: str = "0.1.0"

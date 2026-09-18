@@ -10,6 +10,7 @@ class User(BaseModel):
     username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
+    role: Mapped[str] = mapped_column(String(32), default="user", server_default="user", index=True)
 
     repositories = relationship(
         "Repository",

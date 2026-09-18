@@ -1,5 +1,8 @@
 export const queryKeys = {
   repositories: ["repositories"] as const,
+  adminStats: ["admin", "stats"] as const,
+  adminUsers: (page: number) => ["admin", "users", page] as const,
+  adminUserDetail: (userId: string) => ["admin", "users", userId] as const,
   repositoryBranches: (repositoryId: string) =>
     ["repository", repositoryId, "branches"] as const,
   repositoryDetails: (repositoryId: string, branch?: string | null) =>

@@ -53,6 +53,7 @@ describe("AuthProvider", () => {
       id: "1",
       username: "alice",
       email: "alice@example.com",
+      role: "user",
       created_at: "2026-01-01T00:00:00Z",
     });
 
@@ -87,6 +88,7 @@ describe("AuthProvider", () => {
       id: "1",
       username: "alice",
       email: "alice@example.com",
+      role: "user",
       created_at: "2026-01-01T00:00:00Z",
     });
 
@@ -115,6 +117,7 @@ describe("AuthProvider", () => {
       id: "2",
       username: "bob",
       email: "b@example.com",
+      role: "user",
       created_at: "2026-01-01T00:00:00Z",
     });
 

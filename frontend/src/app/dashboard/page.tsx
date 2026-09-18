@@ -72,6 +72,14 @@ export default function DashboardPage() {
             <Link href="/" className="text-sm text-slate-500 transition hover:text-slate-950">
               Home
             </Link>
+            {user?.role === "admin" ? (
+              <Link
+                href="/admin"
+                className="text-sm text-slate-500 transition hover:text-slate-950"
+              >
+                Admin
+              </Link>
+            ) : null}
             <Button
               variant="outline"
               onClick={handleLogout}

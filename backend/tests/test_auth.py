@@ -13,6 +13,7 @@ async def test_register_success(db_client, register_payload):
     data = response.json()
     assert data["username"] == register_payload["username"]
     assert data["email"] == register_payload["email"]
+    assert data["role"] == "user"
     assert "id" in data
     assert "access_token" in response.cookies
 
@@ -44,6 +45,7 @@ async def test_login_success(db_client, register_payload):
     )
     assert response.status_code == 200
     assert response.json()["email"] == register_payload["email"]
+    assert response.json()["role"] == "user"
     assert "access_token" in response.cookies
 
 
@@ -66,6 +68,7 @@ async def test_me_authenticated(db_client, register_payload):
     data = response.json()
     assert data["username"] == register_payload["username"]
     assert data["email"] == register_payload["email"]
+    assert data["role"] == "user"
 
 
 @pytest.mark.asyncio

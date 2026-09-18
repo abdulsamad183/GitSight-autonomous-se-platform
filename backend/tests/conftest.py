@@ -44,6 +44,7 @@ async def db_client():
         transport = ASGITransport(app=app)
         try:
             async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                ac.test_session = session  # type: ignore[attr-defined]
                 yield ac
         finally:
             app.dependency_overrides.clear()
@@ -51,6 +52,37 @@ async def db_client():
             await transaction.rollback()
 
     await test_engine.dispose()
+
+
+@pytest.fixture
+async def admin_client(db_client):
+    from uuid import UUID
+
+    from app.repositories import user_repository
+
+    response = await db_client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "platformadmin",
+            "email": "platform-admin@example.com",
+            "password": "securepass123",
+        },
+    )
+    assert response.status_code == 201
+    user_id = UUID(response.json()["id"])
+    session = db_client.test_session
+    user = await user_repository.get_by_id(session, user_id)
+    assert user is not None
+    await user_repository.demote_all_admins(session)
+    user.role = "admin"
+    await session.flush()
+    login = await db_client.post(
+        "/api/v1/auth/login",
+        json={"email": "platform-admin@example.com", "password": "securepass123"},
+    )
+    assert login.status_code == 200
+    assert login.json()["role"] == "admin"
+    return db_client
 
 
 @pytest.fixture

@@ -130,6 +130,7 @@ Environment variable templates live in:
 | `DATABASE_URL` | Async PostgreSQL URL (`postgresql+asyncpg://...`) |
 | `SECRET_KEY` | JWT signing key (use a random 32+ character string in production) |
 | `GROQ_API_KEY` | Groq API key for LLM features |
+| `ADMIN_EMAIL` / `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Single admin account seeded on startup (defaults to `admin@gmail.com`) |
 
 ### Backend (recommended)
 

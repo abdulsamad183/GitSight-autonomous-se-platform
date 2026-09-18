@@ -40,8 +40,8 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login({ email: email.trim(), password });
-      router.push("/dashboard");
+      const loggedInUser = await login({ email: email.trim(), password });
+      router.push(loggedInUser.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Login failed");
     } finally {
